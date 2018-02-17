@@ -1,6 +1,6 @@
 Red [
   Author: "Toomas Vooglaid"
-  Last-version: 2018-02-16
+  Last-version: 2018-02-17
 ]
 system/view/auto-sync?: off
 ctx: context [
@@ -210,12 +210,28 @@ ctx: context [
 	]
 	get-group-elements: does []
 	unwrap-group: does []; TBD
-	options-panel: drawing-panel: figs-panel: none
+	over-xy: over-params: current-drawing: current-action: current-step: none
+	recalc-info: has [i p][
+		repeat i length? p: info-panel/pane [
+			j: i - 1
+			if i > 1 [p/:i/offset/x: p/(i - 1)/offset/x + p/(i - 1)/size/x + 5]
+			p/:i/size/x: size-text p/:i
+		]
+		show info-panel
+	]
+	info-panel: options-panel: drawing-panel: figs-panel: none
 	win: view/no-wait/flags compose/deep [
 		title "Drawing pad"
 		across 
-		panel 480x20 [origin 0x0 space 4x0
-			text 10x20 "x:" over-x: text 20x20 text 10x20 "y:" over-y: text 20x20 
+		info-panel: panel 480x20 [origin 0x0 space 4x0
+			over-xy: text 10x20
+			over-params: text 20x20
+			current-action: text 40x20
+			current-drawing: text 80x20
+			current-step: text 40x20
+		]
+		return
+		edit-panel: panel 480x20 [origin 0x0 space 4x0
 			text 50x20 "Selected:" selected-figure: text 80x20 
 		]
 		return
@@ -227,6 +243,10 @@ ctx: context [
 				start?: true 
 				action: 'draw
 				step: 0
+				current-action/text: form action
+				current-drawing/text: form face/extra
+				current-step/text: rejoin ["Step: " step]
+				recalc-info
 			]
 			f with [extra: 'line 		image: (draw 23x23 [line 5x5 17x17])]
 			f with [extra: 'polyline 	image: (draw 23x23 [line 5x5 8x17 13x5 17x17])]
@@ -243,6 +263,7 @@ ctx: context [
 			f with [extra: 'program 
 				image: (draw 23x23 [line 5x5 10x5 line 5x7 14x7 line 5x9 10x9 line 5x11 17x11 line 7x13 10x13 line 7x15 12x15 line 5x17 8x17])
 			]
+			do [current-drawing/text: rejoin ["draw line"] recalc-info]
 			return below
 			group-box "pen" [
 				origin 2x10 space 2x2
@@ -281,13 +302,26 @@ ctx: context [
 				]
 			]
 			button "clear" [
-				clear img/draw show img
-				foreach f figs-panel/pane [clear f/data either f/extra = 'figs1 [f/size/y: f/parent/size/y][f/visible?: false] show f]
-				foreach key keys-of figures [figures/:key: none]
+				clear img/draw ; this seems somehow to cause error in first drawing after `clear`. Problem appeared after introducing group handling.
+				show img
+
+				foreach-face figs-panel [
+					clear face/data 
+					either face/extra = 'figs1 [
+					face/size/y: face/parent/size/y][face/visible?: false]
+				] show figs-panel
+
+				foreach key keys-of figures [figures/:key: 0]
+
 				pen-width/data: 1
 				pen-color/color: 0.0.0
 				fill-color/color: 254.254.254.254
-				show reduce [pen-width pen-color fill-color]
+				show [pen-width pen-color fill-color]
+				
+				action: 'draw figure: 'line
+				foreach-face info-panel [clear face/text] 
+				current-action/text: "draw" current-drawing/text: "line"
+				recalc-info
 			]
 		]
 		;return
@@ -327,8 +361,8 @@ ctx: context [
 							show face
 						]
 					]
-					on-down: func [face event][probe reduce [figure step pos1]; draw
-						probe pos1: event/offset
+					on-down: func [face event][;probe reduce [figure step pos1]; draw
+						pos1: event/offset
 						switch action [
 							draw [
 								case [
@@ -363,11 +397,14 @@ ctx: context [
 											show figs
 											selected-figure/text: ff 
 											show selected-figure
-											;insertion: first reduce bind load write-program self
 											either last-action = 'insert [
-												insert next-figure reduce [to-set-word ff probe reduce bind load write-program self]
+												insert next-figure reduce [
+													to-set-word ff do bind bind load write-program self env
+												]
 											][
-												append selection-start reduce [to-set-word ff probe reduce bind load write-program self] ;insertion
+												append selection-start reduce [
+													to-set-word ff do bind bind load write-program self env
+												] 
 											]
 											select-figure
 											redraw
@@ -449,9 +486,9 @@ ctx: context [
 						]
 					]
 					on-over: func [face event /local mx pos2 draw-form ff i j pnum diff diff2][;pos
-						over-x/text: to-string event/offset/x
-						over-y/text: to-string event/offset/y
-						show over-x show over-y
+						over-xy/text: rejoin ["x: " event/offset/x " y: " event/offset/y]
+						recalc-info
+						;show info-panel;over-xy
 						if all [event/down? figure <> 'program] [
 							either start? [
 								unless figure [figure: 'line]
@@ -528,6 +565,10 @@ ctx: context [
 							][	
 								pos2: event/offset
 								diff: pos2 - pos1
+								ang: 180 / pi * arctangent2 diff/y diff/x
+								hyp: sqrt add diff/x ** 2 diff/y ** 2
+								over-params/text: rejoin ["d: " diff " r: " round/to hyp .1 " α: " round/to ang .1]
+								recalc-info
 								switch action [
 									draw [;probe event/flags
 										;if event/ctrl? [pos2 - pos1]
@@ -573,7 +614,7 @@ ctx: context [
 											figure = 'program []
 											'else [
 												either last-action = 'insert [
-													poke selection-start probe offset? selection-start next-figure switch/default figure [
+													poke selection-start offset? selection-start next-figure switch/default figure [
 														square [dim: max diff/x diff/y pos1 + as-pair dim dim]
 														ellipse [diff]
 														circle [sqrt add power diff/x 2 power diff/y 2]
@@ -583,7 +624,7 @@ ctx: context [
 														square [dim: max diff/x diff/y pos1 + as-pair dim dim]
 														ellipse [diff]
 														circle [sqrt add power diff/x 2 power diff/y 2]
-													][pos2]
+													][pos2] 
 												]
 											]
 										]
@@ -754,7 +795,7 @@ ctx: context [
 					;on-down: func [face event][
 					;	pos: event/offset
 					;]
-					on-menu: func [face event /local sel elements][probe "menu"
+					on-menu: func [face event /local sel elements][
 						switch event/picked [
 							move [env/action: 'move]
 							front [move-selection 'front]
