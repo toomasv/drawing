@@ -1,9 +1,6 @@
 Red [
   Author: "Toomas Vooglaid"
   Last-version: 2018-02-18
-  Changes:	{
-  	2018-02-17	"Added animations panel"
-  }
 ]
 system/view/auto-sync?: off
 ctx: context [
@@ -234,6 +231,7 @@ ctx: context [
 	
 	win: layout compose/deep [
 		title "Drawing pad"
+		size 600x500
 		tab-pan: tab-panel  [
 			"Drawing" [
 				drawing-panel-tab: panel [
@@ -954,16 +952,18 @@ ctx: context [
 						;button 25x25 with [image: (draw 23x23 [fill-pen black polygon 10x5 12x5 12x14 14x14 11x17 8x14 10x14])]
 					]
 					return
-					anim-panel: panel 480x25 [
+					anim-panel: panel 300x25 [
 						origin 0x0 space 4x0
 						text 30x20 "Rate:" a-rate: field with [data: 10][img/rate: face/data]
 						button "Animate" [
 							insert clear body-of :img/actors/on-time [tick: tick + 1]
 							append body-of :img/actors/on-time bind bind bind append load animations/text [show face] :img/actors/on-time img/actors env
 							img/rate: a-rate/data
+							show img
 							;append img/draw clear []
 						] 
 						button "Stop" [img/rate: none] 
+						button "Continue" [img/rate: a-rate/data show img]
 					]
 				]
 			]
@@ -982,6 +982,7 @@ ctx: context [
 			"Save"	save
 			"Save as.." save-as
 		]
+		"Help" help
 	]
 	win/actors: object [
 		on-menu: func [face event /local file][
@@ -992,26 +993,52 @@ ctx: context [
 					redraw
 					show img
 				]
+				help [
+					view/flags [
+						below
+						text 500x500 {Just few notes for current verison: To draw simple figures click on canvas and drag. To draw "poly-" figures (polyline and polygone) click and drag first line, then release and click and drag again to add lines. For manipulations (inserts separate `translate`, `scale`, `skew` and `rotate`) and transformations (inserts single `transform`) click and drag:
+						
+* for rotation, click sets the rotation center, drag creates "lever" (preferably drag initially away from center in 0 direction, i.e to right) to rotate the figure
+* for scaling, click sets the start of scaling, drag scales in relation to 0x0 coordinates (I will implement "local" scaling, i.e. in relation to coordinates set by click)
+* for skewing, again, click sets start, drag skews in relation to 0x0 (intend to implement "local" skewing)
+* for translation, click sets start, drag translates.
+
+To play with animations, you have to:
+
+* first insert transformation(not manipulation!) for the figure, i.e. select figure and from menu select transformation and then click on canvas to set it,
+* then add animation descriptions to the "Animation" tab (print figure name, slash, number of <transformed attribute>, i.e number according to transformation syntax (can also use this: 
+
+`set [r-center angle scale-x scale-y translate][2 3 4 5 6]` ... `square1/:angle: tick` 
+
+to change angle, tick is preset reserved word counting time ticks,
+* click "Animate" button on "Drawing" tab,
+}
+						button "OK" [unview]
+					][modal popup]
+				]
 			]
 		]
 		on-resizing: func [face event][
+			tab-pan/size: win/size - 17
 			foreach tab tab-pan/pane [
-				tab/size: win/size - 23x45
+				tab/size: tab/parent/size; - 10;23x45
 			]
-			drawing-panel-tab/size: drawing-panel-tab/parent/size - 40
+			drawing-panel-tab/offset: 0x0
+			drawing-panel-tab/size: drawing-panel-tab/parent/size - 4x20
 			info-panel/size/y: info-panel/parent/size/y - info-panel/offset/y - 10
 			options-panel/size/y: options-panel/parent/size/y - options-panel/offset/y - 10
 			drawing-panel/size: ;as-pair 
-				drawing-panel/parent/size - drawing-panel/offset - 120x10
+				drawing-panel/parent/size - drawing-panel/offset - 120x50
 				;drawing-panel/parent/size/y - drawing-panel/offset/y - 10
 			img/size: drawing-panel/size
 			figs-panel/offset/x: figs-panel/parent/size/x - 110
 			figs-panel/size/y: figs-panel/parent/size/y - figs-panel/offset/y
 			figs1/size/y: figs-panel/size/y
-			anim-panel/offset/x: anim-panel/parent/offset/x + 80
-			anim-panel/offset/y: anim-panel/parent/size/y - 25
-			anim-panel/size/x: anim-panel/parent/size/x - 10
-			animations/size: animations/parent/size - 20
+			anim-panel/offset/x: anim-panel/parent/offset/x + 100
+			anim-panel/offset/y: anim-panel/parent/size/y - 38
+			anim-panel/size/x: drawing-panel/size/x
+			animations/offset: 0x0
+			animations/size: animations/parent/size - 5x25
 			show win 
 		]
 	]
