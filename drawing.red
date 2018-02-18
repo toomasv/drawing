@@ -840,7 +840,8 @@ ctx: context [
 
 										group [env/action: 'group]
 										show-group [
-											if elements: parse next selection-start show-group-rule [probe sep1/size
+											if elements: parse next selection-start show-group-rule [
+												;probe sep1/size
 												figs2/data: elements
 												figs2/size/y: min 20 * length? elements 240
 												face/size/y: face/parent/size/y - figs2/size/y - sep1/size/y
@@ -852,9 +853,12 @@ ctx: context [
 											]
 										]
 										hide-group [
-											figs2/visible?: no
+											foreach fig next figs-panel/pane [
+												fig/visible?: no
+											]
 											figs1/size/y: figs1/parent/size/y
-											show figs1 show figs2
+											;show figs1 show figs2
+											show figs-panel
 										]
 										ungroup [
 											either block? selection-start/2 [
@@ -954,7 +958,7 @@ ctx: context [
 					return
 					anim-panel: panel 300x25 [
 						origin 0x0 space 4x0
-						text 30x20 "Rate:" a-rate: field with [data: 10][img/rate: face/data]
+						text 30x23 "Rate:" a-rate: field 30x23 with [data: 10][img/rate: face/data]
 						button "Animate" [
 							insert clear body-of :img/actors/on-time [tick: tick + 1]
 							append body-of :img/actors/on-time bind bind bind append load animations/text [show face] :img/actors/on-time img/actors env
@@ -1032,7 +1036,7 @@ to change angle, tick is preset reserved word counting time ticks,
 				;drawing-panel/parent/size/y - drawing-panel/offset/y - 10
 			img/size: drawing-panel/size
 			figs-panel/offset/x: figs-panel/parent/size/x - 110
-			figs-panel/size/y: figs-panel/parent/size/y - figs-panel/offset/y
+			figs-panel/size/y: figs-panel/parent/size/y - figs-panel/offset/y - 15
 			figs1/size/y: figs-panel/size/y
 			anim-panel/offset/x: anim-panel/parent/offset/x + 100
 			anim-panel/offset/y: anim-panel/parent/size/y - 38
