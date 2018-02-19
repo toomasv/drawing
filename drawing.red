@@ -1,6 +1,6 @@
 Red [
   Author: "Toomas Vooglaid"
-  Last-version: 2018-02-18
+  Last-version: 2018-02-19
 ]
 system/view/auto-sync?: off
 ctx: context [
@@ -22,7 +22,25 @@ ctx: context [
 	] 
 	color: black
 	select-color: does [view/flags pallette [modal popup]]
-	write-program: has [result][view/flags [title "Program figure" result: area 300x100 button "OK" [result: result/text unview]][modal popup] result]
+	result: none
+	write-program: has [result][
+		prg-win: view/flags/no-wait [
+			title "Program figure" 
+			below
+			result: area 300x100 
+			return
+			button "OK" [result: result/text unview]
+			button "Cancel" [result: copy "" unview]
+		][modal popup resize]
+		prg-win/actors: [
+			on-resize: func [f e][probe "hi"
+				result/size: result/parent/size
+				show result
+			]
+		]
+		do-events
+		result
+	]
 	ask-new-name: has [result][view/flags [title "Enter new name" result: field hint "New name" button "OK" [result: result/text unview]][modal popup] result]
 	show-warning: func [msg][view/flags compose [title "Warning!" text (msg) button "OK" [unview]][modal popup]]
 	action: 'draw
@@ -36,12 +54,13 @@ ctx: context [
 		selected: any [selected figs/selected ]
 		selected-figure/text: pick figs/data selected
 		show selected-figure
-		selection-start: find-figure selected ;find img/draw load pick figs/data selected
-		either selected = length? figs/data [
-			selection-end: length? selection-start
+		probe "start"
+		probe selection-start: find-figure selected ;find img/draw load pick figs/data selected
+		either selected = length? figs/data [probe "end"
+			probe selection-end: length? selection-start
 			either 1 < selected [selected - 1][none]  ;??? Check it!
-		][
-			selection-end: find next selection-start load pick figs/data selected + 1
+		][probe "not end"
+			probe selection-end: find next selection-start load pick figs/data selected + 1
 			selected
 		]
 	]
@@ -174,7 +193,7 @@ ctx: context [
 		]
 		;move-in-list to-position
 		select-figure 
-		show figs show img adjust-pens
+		show [figs img] adjust-pens
 		probe img/draw
 	]
 	insert-manipulation: func [type][
@@ -205,11 +224,31 @@ ctx: context [
 	show-group-rule: [
 		[['transform | 'translate | 'scale | 'skew | 'rotate] to block! | ahead block!] (in-group?: true) into show-group-rule to end
 	|	if (in-group?) collect some [
-			s: set-word! keep (to-string s/1) | ['line-width | 'fill-pen | 'pen] keep (form copy/part s 2) | skip
+			s: (probe s) set-word! keep (to-string s/1) | ['line-width | 'fill-pen | 'pen] keep (form copy/part s 2) | skip
 		] (in-group?: false)
 	]
-	get-group-elements: does []
-	unwrap-group: does []; TBD
+	show-figs-rule: [
+	;	[['transform | 'translate | 'scale | 'skew | 'rotate] to block! | ahead block!] (in-group?: true) into show-group-rule to end
+	;|	if (in-group?) 
+		collect some [
+			s: (probe s) set-word! keep (to-string s/1) | ['line-width | 'fill-pen | 'pen] keep (form copy/part s 2) | skip
+		] 
+	;	(in-group?: false)
+	;]
+	]
+	get-group-elements: does [] ;???
+	remove-transformations: does [
+		while [
+			find/match [transform translate scale skew] first next selection-start 			
+		][
+			change/part next selection-start first find selection-start block! find/tail selection-start block!
+		]
+	]
+	unwrap-group: does [
+		remove-transformations
+		head selection-start
+		selection-start/2
+	]
 	over-xy: over-params: current-drawing: current-action: current-step: none
 	recalc-info: has [i p][
 		repeat i length? p: info-panel/pane [
@@ -375,7 +414,7 @@ ctx: context [
 									do bind bind probe load animations self env
 									show img
 								]
-								on-down: func [face event][;probe reduce [figure step pos1]; draw
+								on-down: func [face event /local code][;probe reduce [figure step pos1]; draw
 									pos1: event/offset
 									switch action [
 										draw [
@@ -395,35 +434,37 @@ ctx: context [
 													if step = 3 [env/step: 0 start?: true]
 												]
 												figure = 'program [
-													if start? [
-														either figures/:figure [
-															figures/:figure: figures/:figure + 1
-														][
-															figures/:figure: 1
-														]
-														ff: rejoin [figure figures/:figure]
-														either last-action = 'insert [
-															insert figs/data ff
-														][
-															append figs/data ff 
-															figs/selected: length? figs/data 
-														]
-														show figs
-														selected-figure/text: ff 
-														show selected-figure
-														either last-action = 'insert [
-															insert next-figure reduce [
-																to-set-word ff do bind bind load write-program self env
+													unless empty? code: write-program [
+														if start? [
+															either figures/:figure [
+																figures/:figure: figures/:figure + 1
+															][
+																figures/:figure: 1
 															]
-														][
-															append selection-start reduce [
-																to-set-word ff do bind bind load write-program self env
-															] 
+															ff: rejoin [figure figures/:figure]
+															either last-action = 'insert [
+																insert figs/data ff
+															][
+																append figs/data ff 
+																figs/selected: length? figs/data 
+															]
+															show figs
+															selected-figure/text: ff 
+															show selected-figure
+															either last-action = 'insert [
+																insert next-figure reduce [
+																	to-set-word ff do bind bind load code self env
+																]
+															][
+																append selection-start reduce [
+																	to-set-word ff do bind bind load code self env
+																] 
+															]
+															select-figure
+															redraw
+															start?: false 
+															show img
 														]
-														select-figure
-														redraw
-														start?: false 
-														show img
 													]
 												]
 												'else [
@@ -861,19 +902,22 @@ ctx: context [
 											show figs-panel
 										]
 										ungroup [
-											either block? selection-start/2 [
+											;either block? selection-start/2 [;probe selection-start/2
 												replace face/data pick face/data face/selected parse next selection-start show-group-rule
-												change/part selection-start unwrap-group selection-end ; first get to-word selection-start/1
+												probe "hi"
+												probe selection-end: offset? selection-start selection-end
+												probe change/part probe selection-start probe unwrap-group probe selection-end ; first get to-word selection-start/1
+												probe "ho"
 												select-figure
-												show face show img
-											][
-												show-warning 
-												either find [transform translate scale skew rotate] selection-start/2 [
-													"Please remove transformations first!"
-												][
-													"This is not a group!"
-												]
-											]
+												show [face img]
+											;][
+											;	show-warning 
+											;	either find [transform translate scale skew rotate] selection-start/2 [
+											;		"Please remove transformations first!"
+											;	][
+											;		"This is not a group!"
+											;	]
+											;]
 										] ; TBD
 										rename [
 											new-name: ask-new-name
@@ -989,14 +1033,29 @@ ctx: context [
 		"Help" help
 	]
 	win/actors: object [
-		on-menu: func [face event /local file][
+		save-file-as: does [
+			win/extra: request-file/save
+			save-file
+			win/text: to-local-file last split-path win/extra
+			show win
+		]
+		save-file: does [save win/extra append/only insert/only next [draw animations] img/draw animations/text]
+		on-menu: func [face event /local loaded][
 			switch event/picked [
 				open [
-					file: request-file
-					img/draw: load file
+					win/extra: request-file
+					loaded: load win/extra
+					img/draw: select loaded 'draw
+					animations/text: select loaded 'animations
+					win/text: to-local-file last split-path win/extra
 					redraw
-					show img
+					figs/data: parse probe img/draw show-figs-rule
+					figs/selected: 1
+					select-figure
+					show win;[img figs animations]
 				]
+				save [either win/extra [save-file][save-file-as]]
+				save-as [save-file-as]
 				help [
 					view/flags [
 						below
