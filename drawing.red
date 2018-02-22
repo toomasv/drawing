@@ -372,6 +372,7 @@ ctx: context [
 						f with [extra: 'program 
 							image: (draw 23x23 [line 5x5 10x5 line 5x7 14x7 line 5x9 10x9 line 5x11 17x11 line 7x13 10x13 line 7x15 12x15 line 5x17 8x17])
 						]
+						f with [extra: 'freehand 	image: (draw 23x23 [line 5x5 6x6 6x8 7x9 8x10 9x10 10x9 10x7 12x5 14x4 15x4 16x5 17x8 17x17])]
 						do [current-drawing/text: rejoin ["draw line"] recalc-info]
 						return below
 						group-box "pen" [
@@ -555,13 +556,15 @@ ctx: context [
 											]
 											env/step: 2
 										]
-										t-rotate [
+										t-rotate or t-scale [
 											if step = 1 [selection-start/3: pos1]
 											env/step: 2
 										]
-										t-scale [env/step: 2]
 										t-translate [
-											if step = 2 [pre-diff: pos1 - event/offset + selection-start/7] ;?? last pos1?
+											switch step [
+												1 [selection-start/3: pos1]
+												2 [pre-diff: pos1 - event/offset + selection-start/7] ;?? last pos1?
+											]
 											env/step: 2
 										]
 										;animate [
@@ -589,6 +592,7 @@ ctx: context [
 												square 	 	['box] 
 												polyline 	['line]
 												sector		['arc]
+												freehand	['line]
 											][figure]
 											
 											; Synchronize figs list --->
@@ -617,8 +621,9 @@ ctx: context [
 														draw-form pos1 switch/default figure [
 															ellipse [0x0]
 															circle  [0]
-															polygon [env/step: 1 pos1]
-															arc	or sector [env/step: 1 0x0]
+															;polygon [env/step: 1 pos1]
+															arc	or sector [0x0];[env/step: 1 0x0]
+															;freehand [env/step: 1 pos1]
 														][pos1]
 												]
 												;select-figure
@@ -628,11 +633,13 @@ ctx: context [
 														draw-form pos1 switch/default figure [
 															ellipse [0x0]
 															circle  [0]
-															polygon [env/step: 1 pos1]
-															arc	or sector [env/step: 1 0x0]
+															;polygon [env/step: 1 pos1]
+															arc	or sector [0x0];[env/step: 1 0x0]
+															;freehand [env/step: 1 pos1]
 														][pos1]
 												]
 											]
+											if find [polygon arc sector freehand] figure [env/step: 1]
 											either last-action = 'insert [
 												switch figure [
 													;next-figure: find-figure figs/selected + 1
@@ -658,6 +665,9 @@ ctx: context [
 										][	
 											pos2: event/offset
 											diff: pos2 - pos1
+											if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
+												pos2/x: round/to pos2/x g-size/data/x pos2/y: round/to pos2/y g-size/data/y
+											]
 											either event/ctrl? [
 												either ortho? [
 													either cx [pos2/x: cx][pos2/y: cy] probe reduce [cx cy]
@@ -666,9 +676,6 @@ ctx: context [
 												]
 											][
 												ortho?: off cx: cy: none
-											]
-											if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
-												pos2/x: round/to pos2/x g-size/data/x pos2/y: round/to pos2/y g-size/data/y
 											]
 											diff: pos2 - pos1
 											ang: round/to 180 / pi * arctangent2 diff/y diff/x either any [
@@ -727,6 +734,14 @@ ctx: context [
 															]
 														]
 														figure = 'program []
+														figure = 'freehand [
+															if pos2 <> pos1 [probe reduce [pos1 pos2]
+																switch step [
+																	1 [poke selection-start length? selection-start pos2 pos1: pos2 env/step: 2]
+																	2 [append selection-start pos2 pos1: pos2]
+																]
+															]
+														]
 														'else [
 															either last-action = 'insert [
 																poke selection-start offset? selection-start next-figure switch/default figure [
