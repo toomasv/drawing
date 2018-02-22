@@ -1,6 +1,6 @@
 Red [
   Author: "Toomas Vooglaid"
-  Last-version: 2018-02-19
+  Last-version: 2018-02-22
 ]
 system/view/auto-sync?: off
 ctx: context [
@@ -16,7 +16,7 @@ ctx: context [
 	foreach j colors [
 		append pallette compose/deep [
 			clr (j) 
-			on-up [color: (either j = 'transparent ['off][to-lit-word j]) unview]; return 'stop]
+			on-up [color: (either j = 'transparent [probe 'off][to-lit-word j]) unview]; return 'stop]
 		] 
 		if (x: x + 1) % 9 = 0 [append pallette 'return]
 	] 
@@ -45,7 +45,7 @@ ctx: context [
 	show-warning: func [msg][view/flags compose [title "Warning!" text (msg) button "OK" [unview]][modal popup]]
 	action: 'draw
 	last-action: none
-	img: none
+	img: edit-points-layer: none
 	figs: figs1: figs2: figs3: figs4: none
 	sep1: sep2: sep3: none
 	selection-start: none
@@ -56,7 +56,8 @@ ctx: context [
 		show selected-figure
 		probe "start"
 		probe selection-start: find-figure selected ;find img/draw load pick figs/data selected
-		either selected = length? figs/data [probe "end"
+		either selected = length? figs/data [
+			probe "end"
 			probe selection-end: length? selection-start
 			either 1 < selected [selected - 1][none]  ;??? Check it!
 		][probe "not end"
@@ -258,6 +259,46 @@ ctx: context [
 		]
 		show info-panel
 	]
+	count: 0
+	;found-transformations: found-formatting: 
+	;found-figures: make block! 10
+	figure-points: [
+		some [s: 
+			set-word!
+		|	keep 'transform keep [pair! number! number! number! pair!] into figure-points
+		|	keep 'translate keep pair! into figure-points
+		|	keep 'scale keep [number! number!] into figure-points
+		|	keep 'skew keep [number! number!] into figure-points
+		| 	keep 'rotate keep [number! pair!] into figure-points
+		|	keep 'line keep [pair! some pair!]
+		|	keep 'box keep [pair! pair! opt integer!]
+		|	keep 'polygon keep [pair! pair! some pair!]
+		|	keep 'circle keep [pair! 1 2 number!]
+		|	keep 'ellipse keep [pair! pair!]
+		|	keep 'arc keep [pair! pair! integer! integer!] opt 'closed
+		|	keep 'curve keep [pair! pair! 1 2 pair!]
+		|	keep 'spline keep [pair! some pair! opt 'closed]
+		|	keep 'image [image! | word!] keep [pair! opt pair!]
+		|	keep 'text keep pair! string!
+		| 	skip
+		]
+	]
+	copied-fig: none
+	bind-figure-points: does [
+		;foreach [fig points] parse copied-fig: copy/part selection-start selection-end [collect figure-points] [
+		;	probe reduce [fig points]
+			
+			;append drawing-panel/pane layout/only compose [
+			;	at (point - 5) box 11x11 loose draw [pen blue fill-pen 254.254.254.254 circle 5x5 5]
+			;]
+		;]
+		copied-fig: copy/part selection-start selection-end [collect figure-points]
+		insert edit-points-layer/draw next head insert next copied-fig [pen blue]
+		;append drawing-panel/pane layout/only compose/deep [
+		;	at 0x0 box (drawing-panel/size) draw [(drw)] 
+		;]
+		show drawing-panel
+	]
 	
 	a-rate: none
 	tick: 0
@@ -267,6 +308,9 @@ ctx: context [
 	drawing-panel-tab: none
 	animations: scenes: none
 	info-panel: options-panel: drawing-panel: figs-panel: anim-panel: none
+	
+	ortho?: cx: cy: none
+	grid: g-size: g-angle: none
 	
 	win: layout compose/deep [
 		title "Drawing pad"
@@ -283,8 +327,21 @@ ctx: context [
 						current-step: text 40x20
 					]
 					return
-					edit-panel: panel 480x20 [origin 0x0 space 4x0
-						text 50x20 "Selected:" selected-figure: text 80x20 
+					edit-panel: panel 480x30 [origin 0x0 space 4x0
+						text 50x20 "Selected:" 
+							selected-figure: text 80x20 
+						grid: check "Grid:" 45x20
+							g-size: field 40x20 "10x10" 
+							g-angle: field 20x20 "10"
+						;ok: button "OK" [
+						;	switch action [
+						;		points [
+						;			;remove back tail drawing-panel/pane action: 'draw show drawing-panel
+						;			clear edit-points-layer/draw 
+						;			action: 'draw redraw show drawing-panel
+						;		]
+						;	]
+						;]
 					]
 					return
 					;below
@@ -386,7 +443,8 @@ ctx: context [
 						with [
 							actors: object [
 								pos1: 0x0
-								last-pos: 0x0
+								last-pos: 0x0		; for arcs and sectors
+								last-offset: 0x0  	; for grid
 								pre-diff: 0x0
 								pre-angle: 0
 								last-cur-angle: 0
@@ -416,6 +474,9 @@ ctx: context [
 								]
 								on-down: func [face event /local code][;probe reduce [figure step pos1]; draw
 									pos1: event/offset
+									if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
+										pos1/x: round/to pos1/x g-size/data/x pos1/y: round/to pos1/y g-size/data/y
+									]
 									switch action [
 										draw [
 											case [
@@ -473,61 +534,34 @@ ctx: context [
 											]
 										]
 										translate [
-											switch step [
-												1 [	pos1: event/offset]
-												2 [
-													insert-manipulation action
-													pos1: event/offset
-												]
-											]
+											if step = 2 [insert-manipulation action]
 											env/step: 2
 										]
 										scale [
-											switch step [
-												1 [	pos1: event/offset]
-												2 [
-													insert-manipulation action
-													pos1: event/offset
-												]
-											]
+											if step = 2 [insert-manipulation action]
 											env/step: 2
 										]
 										skew [
-											switch step [
-												1 [	pos1: event/offset]
-												2 [
-													insert-manipulation action
-													pos1: event/offset
-												]
-											]
+											if step = 2 [insert-manipulation action]
 											env/step: 2
 										]
 										rotate [
 											switch step [
-												1 [	pos1: selection-start/4: event/offset]
+												1 [	selection-start/4: pos1]
 												2 [
 													insert-manipulation action
-													pos1: selection-start/4: event/offset
+													selection-start/4: pos1
 												]
 											]
 											env/step: 2
 										]
 										t-rotate [
-											if step = 1 [pos1: selection-start/3: event/offset]
+											if step = 1 [selection-start/3: pos1]
 											env/step: 2
 										]
-										t-scale [
-											if step = 1 [pos1: event/offset]
-											env/step: 2
-										]
+										t-scale [env/step: 2]
 										t-translate [
-											switch step [
-												1 [pos1: event/offset]
-												2 [
-													pre-diff: pos1 - event/offset + selection-start/7
-													pos1: event/offset
-												]
-											]
+											if step = 2 [pre-diff: pos1 - event/offset + selection-start/7] ;?? last pos1?
 											env/step: 2
 										]
 										;animate [
@@ -541,7 +575,11 @@ ctx: context [
 									]
 								]
 								on-over: func [face event /local mx pos2 draw-form ff i j pnum diff diff2][;pos
-									over-xy/text: rejoin ["x: " event/offset/x " y: " event/offset/y]
+									either any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
+										over-xy/text: rejoin ["x: " round/to event/offset/x g-size/data/x " y: " round/to event/offset/y g-size/data/y]
+									][
+										over-xy/text: rejoin ["x: " event/offset/x " y: " event/offset/y]
+									]
 									recalc-info
 									;show info-panel;over-xy
 									if all [event/down? figure <> 'program] [
@@ -609,8 +647,8 @@ ctx: context [
 													sector	[append selection-start [180 1 closed]]; fig-start: skip tail selection-start -6]
 												]
 											]
+											select-figure
 											if find [arc sector] figure [
-												select-figure
 												insert-manipulation 'rotate
 												selection-start/4: pos1
 												direction: 'cw
@@ -620,13 +658,27 @@ ctx: context [
 										][	
 											pos2: event/offset
 											diff: pos2 - pos1
-											ang: 180 / pi * arctangent2 diff/y diff/x
+											either event/ctrl? [
+												either ortho? [
+													either cx [pos2/x: cx][pos2/y: cy] probe reduce [cx cy]
+												][
+													probe ortho?: on either lesser? absolute diff/x absolute diff/y [cx: pos1/x cy: none][cy: pos1/y cx: none]
+												]
+											][
+												ortho?: off cx: cy: none
+											]
+											if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
+												pos2/x: round/to pos2/x g-size/data/x pos2/y: round/to pos2/y g-size/data/y
+											]
+											diff: pos2 - pos1
+											ang: round/to 180 / pi * arctangent2 diff/y diff/x either any [
+												all [grid/data not event/shift?] all [not grid/data event/shift?]
+											][g-angle/data][.1]
 											hyp: sqrt add diff/x ** 2 diff/y ** 2
-											over-params/text: rejoin ["d: " diff " r: " round/to hyp .1 " α: " round/to ang .1]
+											over-params/text: rejoin ["d: " diff " r: " round/to hyp .1 " α: " ang]
 											recalc-info
 											switch action [
 												draw [;probe event/flags
-													;if event/ctrl? [pos2 - pos1]
 													case [
 														all [figure = 'polygon step = 1][; triangle?
 															either last-action = 'insert [
@@ -640,14 +692,22 @@ ctx: context [
 														find [arc sector] figure [
 															switch step [
 																1 [
-																	pre-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x 1 ; 
-																	selection-start/3: 180 + round/to 180 / pi * arctangent2  diff/y diff/x 1
-																	last-cur-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x 1
+																	pre-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either any [
+																		all [grid/data not event/shift?] all [not grid/data event/shift?]
+																	][g-angle/data][1] ; 
+																	selection-start/3: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either any [
+																		all [grid/data not event/shift?] all [not grid/data event/shift?]
+																	] [g-angle/data][1]
+																	last-cur-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either any [
+																		all [grid/data not event/shift?] all [not grid/data event/shift?]
+																	] [g-angle/data][1]
 																	selection-start/5/3: as-pair i: sqrt add power diff/x 2 power diff/y 2 i
 																]
 																2 [	
 																	diff: event/offset - last-pos
-																	cur-angle: round/to 180 / pi * arctangent2 diff/y diff/x 1
+																	cur-angle: round/to 180 / pi * arctangent2 diff/y diff/x either any [
+																		all [grid/data not event/shift?] all [not grid/data event/shift?]
+																	] [g-angle/data][1]
 																	diff2: cur-angle - pre-angle
 																	case [
 																		all [last-cur-angle > 170 	cur-angle < -170]	[sector: pick ['negative 'positive] direction = 'cw]
@@ -690,8 +750,7 @@ ctx: context [
 													unless find [pen fill-pen line-width] selection-start/1 [
 														switch selection-start/2 [
 															circle or ellipse [
-																;diff: pos1 - event/offset
-																selection-start/3: selection-start/3 + diff;- diff
+																selection-start/3: selection-start/3 + diff
 																pos1: event/offset
 															]
 															box or line or polygon	[;probe reduce [selection-start selection-end]
@@ -702,8 +761,7 @@ ctx: context [
 																]
 																repeat i pnum [
 																	j: i + 2
-																	;diff: pos1 - event/offset
-																	poke selection-start j selection-start/:j + diff ;- diff
+																	poke selection-start j selection-start/:j + diff 
 																]
 																pos1: event/offset
 															]
@@ -713,7 +771,7 @@ ctx: context [
 												]
 												translate [
 													if step = 2 [
-														selection-start/3: event/offset - pos1
+														selection-start/3: diff
 														show face
 													]
 												]
@@ -733,13 +791,17 @@ ctx: context [
 												]
 												rotate [
 													if step = 2 [
-														selection-start/3: round/to 180 / pi * arctangent2  diff/y diff/x 0.1
+														selection-start/3: round/to 180 / pi * arctangent2  diff/y diff/x either any [
+															all [grid/data not event/shift?] all [not grid/data event/shift?]
+														] [g-angle/data][.1]
 														show face 
 													]
 												]
 												t-rotate [
 													if step = 2 [
-														selection-start/4: round/to 180 / pi * arctangent2  diff/y diff/x 0.1
+														selection-start/4: round/to 180 / pi * arctangent2  diff/y diff/x either any [
+															all [grid/data not event/shift?] all [not grid/data event/shift?]
+														] [g-angle/data][.1]
 														show face 
 													]
 												]
@@ -786,6 +848,7 @@ ctx: context [
 							]
 						]
 						do [selection-start: head img/draw selection-end: tail img/draw]
+						at 0x0 edit-points-layer: box 300x300 draw []
 					]
 					;return
 					figs-panel: panel 100x300 [
@@ -807,7 +870,7 @@ ctx: context [
 									"Fill pattern" 	fill-pattern
 								];"---"
 								"Move" 			move ; Check
-								"Points" 		points ; TBD Edit individual points
+								;"Points" 		points ; TBD Edit individual points
 								"Manipulate" [
 									"Translate"		translate
 									"Scale"			scale
@@ -853,9 +916,18 @@ ctx: context [
 								;on-down: func [face event][
 								;	pos: event/offset
 								;]
-								on-menu: func [face event /local sel elements][
+								on-menu: func [face event /local sel elements point][
 									switch event/picked [
 										move [env/action: 'move]
+										points [env/count: 0
+											;probe copy/part selection-start figure-length
+											bind-figure-points
+											env/action: 'points
+											current-action/text: "points"
+											recalc-info
+											show drawing-panel
+										]
+
 										front [move-selection 'front]
 										forward [move-selection 'forward]
 										backward [move-selection 'backward]
@@ -1066,6 +1138,10 @@ ctx: context [
 * for skewing, again, click sets start, drag skews in relation to 0x0 (intend to implement "local" skewing)
 * for translation, click sets start, drag translates.
 
+Holding down control-key while drawing, switches on `ortho` mode, resulting in orthogonal (vertical or horizontal) lines. (As an interesting effect, if you hold control-key down while starting new line *after drawing an orthogonal line* the ne line is drawn from starting  point orthogonally to the last line. To avoid this, start line in normal mode and press `control` only after starting. I have not decided yet whether to consider this as a bug or as a feature.)
+
+Sift-key controls the grid-mode. If "Grid" is not checked, holding down `shift` switches grid-mode temporarily on, if it is checked, `shift` switches it temporarily off. Grid steps can be changed on edit-panel. (In second field, grid for angles is set (arc degrees to step))
+
 To play with animations, you have to:
 
 * first insert transformation(not manipulation!) for the figure, i.e. select figure and from menu select transformation and then click on canvas to set it,
@@ -1073,8 +1149,8 @@ To play with animations, you have to:
 
 `set [r-center angle scale-x scale-y translate][2 3 4 5 6]` ... `square1/:angle: tick` 
 
-to change angle, tick is preset reserved word counting time ticks,
-* click "Animate" button on "Drawing" tab,
+to change angle, `tick` is preset reserved word counting time ticks,
+* click "Animate" button on "Drawing" tab
 }
 						button "OK" [unview]
 					][modal popup]
