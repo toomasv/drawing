@@ -372,7 +372,7 @@ ctx: context [
 						f with [extra: 'program 
 							image: (draw 23x23 [line 5x5 10x5 line 5x7 14x7 line 5x9 10x9 line 5x11 17x11 line 7x13 10x13 line 7x15 12x15 line 5x17 8x17])
 						]
-						f with [extra: 'freehand 	image: (draw 23x23 [line 5x5 6x6 6x8 7x9 8x10 9x10 10x9 10x7 12x5 14x4 15x4 16x5 17x8 17x17])]
+						f with [extra: 'freehand 	image: (draw 23x23 [line 5x5 7x5 7x8 10x8 10x6 13x6 13x9 17x9 17x12 14x12 14x17 17x17])]
 						do [current-drawing/text: rejoin ["draw line"] recalc-info]
 						return below
 						group-box "pen" [
