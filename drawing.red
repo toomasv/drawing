@@ -1,6 +1,6 @@
 Red [
   Author: "Toomas Vooglaid"
-  Last-version: 2018-02-22
+  Last-version: 2018-02-24
 ]
 system/view/auto-sync?: off
 ctx: context [
@@ -43,6 +43,14 @@ ctx: context [
 	]
 	ask-new-name: has [result][view/flags [title "Enter new name" result: field hint "New name" button "OK" [result: result/text unview]][modal popup] result]
 	show-warning: func [msg][view/flags compose [title "Warning!" text (msg) button "OK" [unview]][modal popup]]
+	load-file: has [result][view/flags [
+		title "Enter location of file" 
+		result: field 150x20 hint "File location" 
+		button "Local file.." [result/text: to-red-file request-file show result] 
+		return
+		button "OK" [result: either url? result/data [load result/data][result/data] unview]
+		button "Cancel" [result: none unview]
+	][modal popup] result]
 	action: 'draw
 	last-action: none
 	img: edit-points-layer: none
@@ -50,18 +58,18 @@ ctx: context [
 	sep1: sep2: sep3: none
 	selection-start: none
 	selection-end: none
-	select-figure: func [/pos selected][; returns new `selected` for figs while deleting
+	select-figure: func [/pos selected][; returns new `selected` for figs while deleting 
 		selected: any [selected figs/selected ]
 		selected-figure/text: pick figs/data selected
 		show selected-figure
-		probe "start"
-		probe selection-start: find-figure selected ;find img/draw load pick figs/data selected
+		probe "sel-start"
+		selection-start: find-figure selected ;find img/draw load pick figs/data selected
 		either selected = length? figs/data [
-			probe "end"
-			probe selection-end: length? selection-start
+			probe "sel-end"
+			selection-end: length? selection-start
 			either 1 < selected [selected - 1][none]  ;??? Check it!
-		][probe "not end"
-			probe selection-end: find next selection-start load pick figs/data selected + 1
+		][probe "not sel-end"
+			selection-end: find next selection-start load pick figs/data selected + 1
 			selected
 		]
 	]
@@ -87,7 +95,7 @@ ctx: context [
 		]
 	]
 	find-deep: func [block needle /local found s][
-		unless found: find probe block needle [
+		unless found: find block needle [
 			parse block [
 				some [to block! s: if (found: find-deep s/1 needle) break | skip]
 			]
@@ -250,15 +258,6 @@ ctx: context [
 		head selection-start
 		selection-start/2
 	]
-	over-xy: over-params: current-drawing: current-action: current-step: none
-	recalc-info: has [i p][
-		repeat i length? p: info-panel/pane [
-			j: i - 1
-			if i > 1 [p/:i/offset/x: p/(i - 1)/offset/x + p/(i - 1)/size/x + 5]
-			p/:i/size/x: size-text p/:i
-		]
-		show info-panel
-	]
 	count: 0
 	;found-transformations: found-formatting: 
 	;found-figures: make block! 10
@@ -308,9 +307,23 @@ ctx: context [
 	drawing-panel-tab: none
 	animations: scenes: none
 	info-panel: options-panel: drawing-panel: figs-panel: anim-panel: none
+
+	over-xy: over-params: current-drawing: current-action: current-step: none
+	current-zoom: "z: 1"
+	recalc-info: has [i p][
+		repeat i length? p: info-panel/pane [
+			j: i - 1
+			if i > 1 [p/:i/offset/x: p/(i - 1)/offset/x + p/(i - 1)/size/x + 5]
+			p/:i/size/x: size-text p/:i
+		]
+		show info-panel
+	]
 	
 	ortho?: cx: cy: none
 	grid: g-size: g-angle: none
+	
+	imag: none
+	_Matrix: none
 	
 	win: layout compose/deep [
 		title "Drawing pad"
@@ -322,6 +335,7 @@ ctx: context [
 					info-panel: panel 480x20 [origin 0x0 space 4x0
 						over-xy: text 10x20
 						over-params: text 20x20
+						current-zoom: text 20x20
 						current-action: text 40x20
 						current-drawing: text 80x20
 						current-step: text 40x20
@@ -367,12 +381,18 @@ ctx: context [
 						return
 						f with [extra: 'ellipse 	image: (draw 23x23 [fill-pen snow ellipse 5x6 13x10])]
 						f with [extra: 'circle 		image: (draw 23x23 [fill-pen snow circle 11x11 6])]
-						f with [extra: 'sector 		image: (draw 23x23 [fill-pen snow arc 7x11 8x6 -50 100 closed])]
+						f with [extra: 'sector 		image: (draw 23x23 [fill-pen snow arc 5x11 12x6 -25 50 closed])]
 						return
 						f with [extra: 'program 
 							image: (draw 23x23 [line 5x5 10x5 line 5x7 14x7 line 5x9 10x9 line 5x11 17x11 line 7x13 10x13 line 7x15 12x15 line 5x17 8x17])
 						]
 						f with [extra: 'freehand 	image: (draw 23x23 [line 5x5 7x5 7x8 10x8 10x6 13x6 13x9 17x9 17x12 14x12 14x17 17x17])]
+						f with [extra: 'image 		image: (draw 23x23 compose [
+							image (load %frame-with-picture_1f5bc.png) -3x-3 25x25
+							;https://emojipedia-us.s3.amazonaws.com/thumbs/160/emoji-one/44/frame-with-picture_1f5bc.png
+						])] on-up [imag: load-file env/figure: 'image]
+						return 
+						
 						do [current-drawing/text: rejoin ["draw line"] recalc-info]
 						return below
 						group-box "pen" [
@@ -440,10 +460,11 @@ ctx: context [
 						;img: image 300x300 all-over
 						img: base white 300x300 all-over
 						;rate 1;none
-						draw []
+						draw [_Matrix: matrix [1 0 0 1 0 0]]
 						with [
 							actors: object [
 								pos1: 0x0
+								pos-tmp: 0x0
 								last-pos: 0x0		; for arcs and sectors
 								last-offset: 0x0  	; for grid
 								pre-diff: 0x0
@@ -455,13 +476,36 @@ ctx: context [
 								on-wheel: func [face event][
 									switch action [
 										draw [
-											unless face/draw/1 = 'scale [
-												insert face/draw [scale 1 1]
+											unless face/draw/2 = 'matrix [insert face/draw [_Matrix: matrix [1 0 0 1 0 0]]]
+											fc: img 
+											ev: fc/offset
+											; find face offset on screen
+											until [fc: fc/parent ev: ev - fc/offset fc/type = 'window]
+											; cursor offset on face
+											ev: event/offset + ev
+											; current center of coordinates (COC)
+											dr: as-pair _Matrix/2/5 _Matrix/2/6
+											; cursor offset from COC (i.e. relative to COC)
+											df: dr - ev
+											; increased offset from COC
+											df+: as-pair to-integer round df/x / 1.1 to-integer round df/y / 1.1
+											; decreased offset from COC
+											df-: as-pair to-integer round df/x * 1.1 to-integer round df/y * 1.1
+											; add cursor offset to new offset
+											dr+: df+ + ev
+											dr-: df- + ev
+											_Matrix/2: reduce [
+												either 0 > event/picked [_Matrix/2/1 / 1.1][_Matrix/2/1 * 1.1]
+												0 0
+												either 0 > event/picked [_Matrix/2/4 / 1.1][_Matrix/2/4 * 1.1]
+												either 0 > event/picked [dr+/x][dr-/x]
+												either 0 > event/picked [dr+/y][dr-/y]
 											]
-											sign: pick reduce [:+ :-] event/picked = 1
-											face/draw/2: face/draw/3: face/draw/2 sign 0.1 
-											show face
-											;probe reduce [event/offset event/picked]
+											probe current-zoom: rejoin ["z: " _Matrix/2/1 ":" _Matrix/2/4]
+											recalc-info
+											probe reduce [pos1 _Matrix/2]	
+									
+											show face ; probe
 										]
 									]
 								]
@@ -474,10 +518,14 @@ ctx: context [
 									show img
 								]
 								on-down: func [face event /local code][;probe reduce [figure step pos1]; draw
+									mxpos: as-pair _Matrix/2/5 _Matrix/2/6
 									pos1: event/offset
+									pos1: as-pair to-integer round pos1/x / _Matrix/2/1 to-integer round pos1/y / _Matrix/2/4
+									pos1: subtract pos1 mxpos / _Matrix/2/1
 									if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
 										pos1/x: round/to pos1/x g-size/data/x pos1/y: round/to pos1/y g-size/data/y
 									]
+									probe reduce ["pos1:" pos1]
 									switch action [
 										draw [
 											case [
@@ -529,6 +577,43 @@ ctx: context [
 														]
 													]
 												]
+												figure = 'image [
+													unless empty? imag [
+														if start? [
+															either figures/:figure [
+																figures/:figure: figures/:figure + 1
+															][
+																figures/:figure: 1
+															]
+															ff: rejoin [figure figures/:figure]
+															either last-action = 'insert [
+																insert figs/data ff
+															][
+																append figs/data ff 
+																figs/selected: length? figs/data 
+															]
+															show figs
+															
+															selected-figure/text: ff 
+															show selected-figure
+															
+															either last-action = 'insert [
+																insert next-figure reduce [
+																	to-set-word ff 'image imag pos1
+																]
+															][
+																append selection-start reduce [
+																	to-set-word ff 'image imag pos1 
+																] 
+															] 
+															env/step: 1
+															select-figure
+															redraw
+															start?: false 
+															;show img
+														]
+													]
+												]
 												'else [
 													start?: true
 												]
@@ -567,6 +652,11 @@ ctx: context [
 											]
 											env/step: 2
 										]
+										d3-x-rotate [
+											switch step [
+												1 [selection-start/3: pos1]
+											]
+										]
 										;animate [
 											;if all [selection-start/2 = 'transform][
 											;	probe selection-start/3: event/offset ; For rotation
@@ -575,9 +665,9 @@ ctx: context [
 											;]
 											;env/step: 2 
 										;] 
-									]
+									] 
 								]
-								on-over: func [face event /local mx pos2 draw-form ff i j pnum diff diff2][;pos
+								on-over: func [face event /local mx pos2 draw-form ff i j pnum diff diff2][
 									either any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
 										over-xy/text: rejoin ["x: " round/to event/offset/x g-size/data/x " y: " round/to event/offset/y g-size/data/y]
 									][
@@ -585,7 +675,7 @@ ctx: context [
 									]
 									recalc-info
 									;show info-panel;over-xy
-									if all [event/down? figure <> 'program] [
+									if all [event/down? not find [program] figure] [
 										either start? [
 											unless figure [figure: 'line]
 											draw-form: switch/default figure [
@@ -616,7 +706,7 @@ ctx: context [
 											
 											;put-to: pick [:insert][:append] last-action = 'insert
 											either last-action = 'insert [
-												probe next-figure: insert next-figure reduce [
+												next-figure: insert next-figure reduce [
 													to-set-word ff 
 														draw-form pos1 switch/default figure [
 															ellipse [0x0]
@@ -663,16 +753,20 @@ ctx: context [
 											]
 											start?: false
 										][	
+											mxpos: as-pair _Matrix/2/5 _Matrix/2/6
 											pos2: event/offset
+											pos2: as-pair to-integer round pos2/x / _Matrix/2/1 to-integer round pos2/y / _Matrix/2/4
+											pos2: subtract pos2 mxpos / _Matrix/2/1 
 											diff: pos2 - pos1
 											if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
 												pos2/x: round/to pos2/x g-size/data/x pos2/y: round/to pos2/y g-size/data/y
 											]
+											if pos2 <> pos-tmp [probe reduce ["pos2:" pos2 pos-tmp] pos-tmp: pos2]
 											either event/ctrl? [
 												either ortho? [
-													either cx [pos2/x: cx][pos2/y: cy] probe reduce [cx cy]
+													either cx [pos2/x: cx][pos2/y: cy] ;probe reduce [cx cy]
 												][
-													probe ortho?: on either lesser? absolute diff/x absolute diff/y [cx: pos1/x cy: none][cy: pos1/y cx: none]
+													ortho?: on either lesser? absolute diff/x absolute diff/y [cx: pos1/x cy: none][cy: pos1/y cx: none]
 												]
 											][
 												ortho?: off cx: cy: none
@@ -735,11 +829,17 @@ ctx: context [
 														]
 														figure = 'program []
 														figure = 'freehand [
-															if pos2 <> pos1 [probe reduce [pos1 pos2]
+															if pos2 <> pos1 [
 																switch step [
 																	1 [poke selection-start length? selection-start pos2 pos1: pos2 env/step: 2]
 																	2 [append selection-start pos2 pos1: pos2]
 																]
+															]
+														]
+														figure = 'image [
+															switch step [
+																1 [append selection-start pos2 env/step: 2]
+																2 [poke selection-start length? selection-start pos2]
 															]
 														]
 														'else [
@@ -852,10 +952,11 @@ ctx: context [
 												arc or sector [
 													if step = 2 [env/step: 3]
 												]
+												image [env/step: 0 start?: true show face] ; In case image was set by a click, i.e. without on-over
 											]
 										]
 									]
-									select-figure 
+									;select-figure 
 									last-pos: pos1
 									;probe reduce ["start" selection-start "end" selection-end]
 									probe face/draw
@@ -924,6 +1025,8 @@ ctx: context [
 								"Clone"			clone ; TBD Either group or element
 								"Rename"		rename ; TBD
 								"Delete" 		delete
+								"3D" ["Rotate" ["x" d3-x-rotate "y" d3-y-rotate "z" d3-z-rotate]
+									  "Translate" ["x" d3-x-translate "y" d3-y-translate "z" d3-z-translate]]
 							]
 							actors: object [
 								pos: 0x0
@@ -1035,6 +1138,7 @@ ctx: context [
 											]
 											show face show img
 										]
+										d3 [new-transformation event/picked]
 									]
 								]
 								on-down: func [face event][env/figs: face]
@@ -1146,7 +1250,7 @@ ctx: context [
 				help [
 					view/flags [
 						below
-						text 500x500 {Just few notes for current verison: To draw simple figures click on canvas and drag. To draw "poly-" figures (polyline and polygone) click and drag first line, then release and click and drag again to add lines. For manipulations (inserts separate `translate`, `scale`, `skew` and `rotate`) and transformations (inserts single `transform`) click and drag:
+						text 500x500 {Just few notes for current version: To draw simple figures click on canvas and drag. To draw "poly-" figures (polyline and polygon) click and drag first line, then release and click and drag again to add lines. For manipulations (inserts separate `translate`, `scale`, `skew` and `rotate`) and transformations (inserts single `transform`) click and drag:
 						
 * for rotation, click sets the rotation center, drag creates "lever" (preferably drag initially away from center in 0 direction, i.e to right) to rotate the figure
 * for scaling, click sets the start of scaling, drag scales in relation to 0x0 coordinates (I will implement "local" scaling, i.e. in relation to coordinates set by click)
@@ -1155,7 +1259,11 @@ ctx: context [
 
 Holding down control-key while drawing, switches on `ortho` mode, resulting in orthogonal (vertical or horizontal) lines. (As an interesting effect, if you hold control-key down while starting new line *after drawing an orthogonal line* the ne line is drawn from starting  point orthogonally to the last line. To avoid this, start line in normal mode and press `control` only after starting. I have not decided yet whether to consider this as a bug or as a feature.)
 
-Sift-key controls the grid-mode. If "Grid" is not checked, holding down `shift` switches grid-mode temporarily on, if it is checked, `shift` switches it temporarily off. Grid steps can be changed on edit-panel. (In second field, grid for angles is set (arc degrees to step))
+Sift-key controls the grid-mode. If "Grid" is not checked, holding down `shift` switches grid-mode temporarily on, if it is checked, `shift` switches it temporarily off. Grid steps can be changed on edit-panel. (In second field, grid for angles is set (arc degrees to step)).
+
+Wheel-rotation zooms in and out. New figures are inserted correctly under cursor in zoomed views.
+
+Pictures are inserted either from web (paste url into field) or from local file-system. First click after "OK" on file-selection window sets the top-left position for the picture, second click inserts picture - or - click and drag inserts picture to dragged dimensions. (Some bug, which I haven't succeeded to weed out, requires two mouse presses, instead of one. Working on this.)
 
 To play with animations, you have to:
 
