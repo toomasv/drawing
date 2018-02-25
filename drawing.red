@@ -51,6 +51,16 @@ ctx: context [
 		button "OK" [result: either url? result/data [load result/data][result/data] unview]
 		button "Cancel" [result: none unview]
 	][modal popup] result]
+	show-draw: does [
+		view/options compose [;/flags
+			title "Edit draw" 
+			below
+			result: area 300x200 (mold canvas/draw)
+			return
+			button "Show" [canvas/draw: load result/text show canvas] ;new-line/all  false
+			button "Close" [unview]
+		][offset: win/offset + 600x0];[modal popup]
+	]
 	action: 'draw
 	last-action: none
 	canvas: edit-points-layer: none
@@ -108,7 +118,7 @@ ctx: context [
 	last-selected?: does [figs/selected = length? figs/data]
 	last-but-one-selected?: does [(length? figs/data) = (figs/selected + 1)]
 	next-figure: none
-	redraw: does [canvas/draw: canvas/draw]
+	redraw: does [canvas/draw/1: canvas/draw/1]
 	figure-length: func [/pos selected /local figure selection][
 		selected: any [selected figs/selected]
 		figure: load first selection: at figs/data selected
@@ -457,7 +467,7 @@ ctx: context [
 					;return
 					style layer: base white 300x300 all-over
 						;rate 1;none
-						draw [_Matrix: matrix [1 0 0 1 0 0]]
+						draw [];[matrix [1 0 0 1 0 0]];_Matrix: 
 						with [
 							actors: object [
 								pos1: 0x0
@@ -473,7 +483,9 @@ ctx: context [
 								on-wheel: func [face event][probe action
 									;switch action [
 										;draw [
-											unless face/draw/2 = 'matrix [insert face/draw [_Matrix: matrix [1 0 0 1 0 0]]]
+											unless face/draw/1 = 'matrix [insert face/draw [matrix [1 0 0 1 0 0]]] ;_Matrix: 
+											probe _Matrix: face/draw;/2
+											select-figure
 											fc: canvas 
 											ev: fc/offset
 											; find face offset on screen
@@ -481,7 +493,7 @@ ctx: context [
 											; cursor offset on face
 											ev: event/offset + ev
 											; current center of coordinates (COC)
-											dr: as-pair _Matrix/2/5 _Matrix/2/6
+											dr: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;
 											; cursor offset from COC (i.e. relative to COC)
 											df: dr - ev
 											; increased offset from COC
@@ -491,18 +503,18 @@ ctx: context [
 											; add cursor offset to new offset
 											dr+: df+ + ev
 											dr-: df- + ev
-											_Matrix/2: reduce [
-												either 0 > event/picked [_Matrix/2/1 / 1.1][_Matrix/2/1 * 1.1]
+											_Matrix/2: reduce [;_Matrix: reduce [;
+												either 0 > event/picked [_Matrix/2/1 / 1.1][_Matrix/2/1 * 1.1];[_Matrix/1 / 1.1][_Matrix/1 * 1.1];[_Matrix/2/1 / 1.1][_Matrix/2/1 * 1.1];
 												0 0
-												either 0 > event/picked [_Matrix/2/4 / 1.1][_Matrix/2/4 * 1.1]
+												either 0 > event/picked [_Matrix/2/4 / 1.1][_Matrix/2/4 * 1.1];[_Matrix/4 / 1.1][_Matrix/4 * 1.1];[_Matrix/2/4 / 1.1][_Matrix/2/4 * 1.1];
 												either 0 > event/picked [dr+/x][dr-/x]
 												either 0 > event/picked [dr+/y][dr-/y]
 											]
-											probe current-zoom: rejoin ["z: " _Matrix/2/1 ":" _Matrix/2/4]
+											probe current-zoom: rejoin ["z: " _Matrix/2/1 ":" _Matrix/2/4];_Matrix/1 ":" _Matrix/4];_Matrix/2/1 ":" _Matrix/2/4];
 											recalc-info
-											probe reduce [pos1 _Matrix/2]	
-									
+											probe reduce [pos1 _Matrix/2];_Matrix] ;_Matrix/2];
 											show face ; probe
+											;redraw
 										;]
 									;]
 								]
@@ -516,10 +528,11 @@ ctx: context [
 								]
 								on-down: func [face event /local code][;probe reduce [figure step pos1]; draw
 									pos1: event/offset
-									if face/draw/2 = 'matrix [
-										mxpos: as-pair _Matrix/2/5 _Matrix/2/6
-										pos1: as-pair to-integer round pos1/x / _Matrix/2/1 to-integer round pos1/y / _Matrix/2/4
-										pos1: subtract pos1 mxpos / _Matrix/2/1
+									if face/draw/2 = 'matrix [probe "ho"
+										mxpos: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;_Matrix/2/5 _Matrix/2/6;
+										pos1: as-pair to-integer round pos1/x / _Matrix/2/1 to-integer round pos1/y / _Matrix/2/4;_Matrix/1 to-integer round pos1/y / _Matrix/4;_Matrix/2/1 to-integer round pos1/y / _Matrix/2/4;
+										pos1: subtract pos1 mxpos / _Matrix/2/1;_Matrix/1;_Matrix/2/1;
+										probe "hu"
 									]
 									if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
 										pos1/x: round/to pos1/x g-size/data/x pos1/y: round/to pos1/y g-size/data/y
@@ -754,9 +767,9 @@ ctx: context [
 										][	
 											pos2: event/offset
 											if face/draw/2 = 'matrix [
-												mxpos: as-pair _Matrix/2/5 _Matrix/2/6
-												pos2: as-pair to-integer round pos2/x / _Matrix/2/1 to-integer round pos2/y / _Matrix/2/4
-												pos2: subtract pos2 mxpos / _Matrix/2/1 
+												mxpos: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;_Matrix/2/5 _Matrix/2/6;
+												pos2: as-pair to-integer round pos2/x / _Matrix/2/1 to-integer round pos2/y / _Matrix/2/4;_Matrix/1 to-integer round pos2/y / _Matrix/4;_Matrix/2/1 to-integer round pos2/y / _Matrix/2/4;
+												pos2: subtract pos2 mxpos / _Matrix/2/1;_Matrix/1 ; 
 											]
 											diff: pos2 - pos1
 											if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
@@ -1232,6 +1245,7 @@ ctx: context [
 				"ico" ico
 			]
 		]
+		"Draw" draw
 		"Help" help
 	]
 	win/actors: object [
@@ -1258,6 +1272,7 @@ ctx: context [
 				]
 				save [either win/extra [save-file][save-file-as]]
 				save-as [save-file-as]
+				draw [show-draw]
 				help [
 					view/flags [
 						below
