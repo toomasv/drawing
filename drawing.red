@@ -1,6 +1,6 @@
 Red [
   Author: "Toomas Vooglaid"
-  Last-version: 2018-02-24
+  Last-version: 2018-02-25
 ]
 system/view/auto-sync?: off
 ctx: context [
@@ -53,7 +53,7 @@ ctx: context [
 	][modal popup] result]
 	action: 'draw
 	last-action: none
-	img: edit-points-layer: none
+	canvas: edit-points-layer: none
 	figs: figs1: figs2: figs3: figs4: none
 	sep1: sep2: sep3: none
 	selection-start: none
@@ -63,7 +63,7 @@ ctx: context [
 		selected-figure/text: pick figs/data selected
 		show selected-figure
 		probe "sel-start"
-		selection-start: find-figure selected ;find img/draw load pick figs/data selected
+		selection-start: find-figure selected ;find canvas/draw load pick figs/data selected
 		either selected = length? figs/data [
 			probe "sel-end"
 			selection-end: length? selection-start
@@ -77,19 +77,19 @@ ctx: context [
 	find-figure: func [selected /tail /local figure found][
 		either word? figure: load-figure selected [
 			either tail [
-				skip find-deep img/draw figure figure-length/pos selected
+				skip find-deep canvas/draw figure figure-length/pos selected
 			][
-				find-deep img/draw figure
+				find-deep canvas/draw figure
 			]
 		][
 			either found: find/reverse at figs/data selected form figure [
 				n: 1
 				while [found: find/reverse found form figure][n: n + 1]
-				found: next find img/draw figure
+				found: next find canvas/draw figure
 				loop n [found: next find found figure]
 				either tail [skip back found length? figure][back found]
 			][
-				found: find img/draw figure
+				found: find canvas/draw figure
 				either tail [skip found length? figure][found]
 			]
 		]
@@ -108,7 +108,7 @@ ctx: context [
 	last-selected?: does [figs/selected = length? figs/data]
 	last-but-one-selected?: does [(length? figs/data) = (figs/selected + 1)]
 	next-figure: none
-	redraw: does [img/draw: img/draw]
+	redraw: does [canvas/draw: canvas/draw]
 	figure-length: func [/pos selected /local figure selection][
 		selected: any [selected figs/selected]
 		figure: load first selection: at figs/data selected
@@ -119,16 +119,16 @@ ctx: context [
 		]
 	]
 	adjust-pens: has [found][
-		if found: find/last img/draw 'line-width [pen-width/data: found/2 show pen-width]
-		if found: find/last img/draw 'pen 		 [pen-color/color: get found/2 show pen-color]
-		if found: find/last img/draw 'fill-pen   [fill-color/color: get found/2 show fill-color]
+		if found: find/last canvas/draw 'line-width [pen-width/data: found/2 show pen-width]
+		if found: find/last canvas/draw 'pen 		 [pen-color/color: get found/2 show pen-color]
+		if found: find/last canvas/draw 'fill-pen   [fill-color/color: get found/2 show fill-color]
 	]
 	join: cap: none
 	line-joins: copy []
 	foreach join [miter bevel round] [
 		append line-joins compose/deep [
 			box 20x20 draw [pen gray box 0x0 19x19 pen black line-join (join) anti-alias off line-width 4 line 4x4 15x15 4x15][
-				append img/draw [line-join (join)]
+				append canvas/draw [line-join (join)]
 				append figs/data form [line-join (join)]
 				figs/selected: length? figs/data
 				select-figure 
@@ -140,7 +140,7 @@ ctx: context [
 	foreach cap [flat square round] [
 		append line-caps compose/deep [
 			box 20x20 draw [pen gray box 0x0 19x19 pen black line-cap (cap) anti-alias off line-width 4 line 4x10 15x10][
-				append img/draw [line-cap (cap)]
+				append canvas/draw [line-cap (cap)]
 				append figs/data form [line-cap (cap)]
 				figs/selected: length? figs/data
 				select-figure 
@@ -202,8 +202,8 @@ ctx: context [
 		]
 		;move-in-list to-position
 		select-figure 
-		show [figs img] adjust-pens
-		probe img/draw
+		show [figs canvas] adjust-pens
+		probe canvas/draw
 	]
 	insert-manipulation: func [type][
 		change/part next selection-start 
@@ -212,10 +212,10 @@ ctx: context [
 			scale 		[[scale 1 1]]
 			skew		[[skew 0 0]]
 			rotate		[[rotate 0 0x0]]
-			transform	[[transform 0x0 0 1 1 0x0]]
+			transform	[if integer? selection-end [selection-end: selection-end + 6] [transform 0x0 0 1 1 0x0]]
 		]
 		copy/part next selection-start selection-end
-		selection-end
+		probe selection-end
 	]
 	new-manipulation: func [type][
 		insert-manipulation type
@@ -398,7 +398,7 @@ ctx: context [
 						group-box "pen" [
 							origin 2x10 space 2x2
 							pen-width: field 20x20 "1" [
-								append img/draw reduce ['line-width face/data] 
+								append canvas/draw reduce ['line-width face/data] 
 								append figs/data form reduce ['line-width face/data] 
 								figs/selected: length? figs/data
 								select-figure 
@@ -408,7 +408,7 @@ ctx: context [
 								select-color 
 								face/color: get color
 								show face  
-								append img/draw reduce ['pen color]
+								append canvas/draw reduce ['pen color]
 								append figs/data form reduce ['pen color]
 								figs/selected: length? figs/data
 								select-figure 
@@ -424,7 +424,7 @@ ctx: context [
 								select-color
 								face/color: get color 
 								show face
-								append img/draw reduce ['fill-pen color]
+								append canvas/draw reduce ['fill-pen color]
 								append figs/data form reduce ['fill-pen color] 
 								figs/selected: length? figs/data
 								select-figure 
@@ -432,8 +432,8 @@ ctx: context [
 							]
 						]
 						button "clear" [
-							clear img/draw ; this seems somehow to cause error in first drawing after `clear`. Problem appeared after introducing group handling.
-							show img
+							clear canvas/draw ; this seems somehow to cause error in first drawing after `clear`. Problem appeared after introducing group handling.
+							show canvas
 
 							foreach-face figs-panel [
 								clear face/data 
@@ -455,10 +455,7 @@ ctx: context [
 						]
 					]
 					;return
-					drawing-panel: panel 300x300 [
-						origin 0x0 space 0x0
-						;img: image 300x300 all-over
-						img: base white 300x300 all-over
+					style layer: base white 300x300 all-over
 						;rate 1;none
 						draw [_Matrix: matrix [1 0 0 1 0 0]]
 						with [
@@ -473,11 +470,11 @@ ctx: context [
 								direction: none
 								sector: none
 								;fig-start: none
-								on-wheel: func [face event][
-									switch action [
-										draw [
+								on-wheel: func [face event][probe action
+									;switch action [
+										;draw [
 											unless face/draw/2 = 'matrix [insert face/draw [_Matrix: matrix [1 0 0 1 0 0]]]
-											fc: img 
+											fc: canvas 
 											ev: fc/offset
 											; find face offset on screen
 											until [fc: fc/parent ev: ev - fc/offset fc/type = 'window]
@@ -506,8 +503,8 @@ ctx: context [
 											probe reduce [pos1 _Matrix/2]	
 									
 											show face ; probe
-										]
-									]
+										;]
+									;]
 								]
 								on-time: func [face event /local r-center angle scale-x scale-y translate][
 									;if all [action = 'animate step = 2 selection-start/2 = 'transform] [
@@ -515,13 +512,15 @@ ctx: context [
 									;	show face
 									;]
 									do bind bind probe load animations self env
-									show img
+									show canvas
 								]
 								on-down: func [face event /local code][;probe reduce [figure step pos1]; draw
-									mxpos: as-pair _Matrix/2/5 _Matrix/2/6
 									pos1: event/offset
-									pos1: as-pair to-integer round pos1/x / _Matrix/2/1 to-integer round pos1/y / _Matrix/2/4
-									pos1: subtract pos1 mxpos / _Matrix/2/1
+									if face/draw/2 = 'matrix [
+										mxpos: as-pair _Matrix/2/5 _Matrix/2/6
+										pos1: as-pair to-integer round pos1/x / _Matrix/2/1 to-integer round pos1/y / _Matrix/2/4
+										pos1: subtract pos1 mxpos / _Matrix/2/1
+									]
 									if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
 										pos1/x: round/to pos1/x g-size/data/x pos1/y: round/to pos1/y g-size/data/y
 									]
@@ -573,7 +572,7 @@ ctx: context [
 															select-figure
 															redraw
 															start?: false 
-															show img
+															show canvas
 														]
 													]
 												]
@@ -610,7 +609,7 @@ ctx: context [
 															select-figure
 															redraw
 															start?: false 
-															;show img
+															;show canvas
 														]
 													]
 												]
@@ -661,7 +660,7 @@ ctx: context [
 											;if all [selection-start/2 = 'transform][
 											;	probe selection-start/3: event/offset ; For rotation
 											;	pos1: event/offset 
-												;probe img/rate: 10
+												;probe canvas/rate: 10
 											;]
 											;env/step: 2 
 										;] 
@@ -753,10 +752,12 @@ ctx: context [
 											]
 											start?: false
 										][	
-											mxpos: as-pair _Matrix/2/5 _Matrix/2/6
 											pos2: event/offset
-											pos2: as-pair to-integer round pos2/x / _Matrix/2/1 to-integer round pos2/y / _Matrix/2/4
-											pos2: subtract pos2 mxpos / _Matrix/2/1 
+											if face/draw/2 = 'matrix [
+												mxpos: as-pair _Matrix/2/5 _Matrix/2/6
+												pos2: as-pair to-integer round pos2/x / _Matrix/2/1 to-integer round pos2/y / _Matrix/2/4
+												pos2: subtract pos2 mxpos / _Matrix/2/1 
+											]
 											diff: pos2 - pos1
 											if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
 												pos2/x: round/to pos2/x g-size/data/x pos2/y: round/to pos2/y g-size/data/y
@@ -881,7 +882,7 @@ ctx: context [
 																pos1: event/offset
 															]
 														]
-														show face ;img
+														show face ;canvas
 													]
 												]
 												translate [
@@ -934,8 +935,8 @@ ctx: context [
 													]
 												]
 												;animate [
-												;	if all [step = 2 img/rate] [
-												;		img/rate: either 0 < diff/x [img/rate + diff/x][0:0:1 + divide absolute diff/x 10]
+												;	if all [step = 2 canvas/rate] [
+												;		canvas/rate: either 0 < diff/x [canvas/rate + diff/x][0:0:1 + divide absolute diff/x 10]
 												;	]
 												;]
 											]
@@ -963,7 +964,12 @@ ctx: context [
 								]
 							]
 						]
-						do [selection-start: head img/draw selection-end: tail img/draw]
+						
+					drawing-panel: panel 300x300 [
+						origin 0x0 space 0x0
+						;canvas: image 300x300 all-over
+						layer1: layer
+						do [env/canvas: layer1 selection-start: head canvas/draw selection-end: tail canvas/draw]
 						at 0x0 edit-points-layer: box 300x300 draw []
 					]
 					;return
@@ -1055,13 +1061,13 @@ ctx: context [
 										undo-manipulation []
 										undo-manipulations []
 										t-rotate or t-scale or t-translate [new-transformation event/picked]
-										undo-t-rotate 		[selection-start/3: 0x0 selection-start/4: 0 show img]
-										undo-t-scale 		[selection-start/5: selection-start/6: 1 show img]
-										undo-t-translate 	[selection-start/7: 0x0 show img]
-										undo-transforms 	[change skip selection-start 2 [0x0 0 1 1 0x0] show img]
+										undo-t-rotate 		[selection-start/3: 0x0 selection-start/4: 0 show canvas]
+										undo-t-scale 		[selection-start/5: selection-start/6: 1 show canvas]
+										undo-t-translate 	[selection-start/7: 0x0 show canvas]
+										undo-transforms 	[change skip selection-start 2 [0x0 0 1 1 0x0] show canvas]
 
-										;animate [env/action: 'animate env/step: 1 img/rate: 10]
-										stop-animation [img/rate: none env/step: 1]
+										;animate [env/action: 'animate env/step: 1 canvas/rate: 10]
+										stop-animation [canvas/rate: none env/step: 1]
 
 										a-translate	[
 											unless selection-start/2 <> 'translate [
@@ -1099,7 +1105,7 @@ ctx: context [
 												probe change/part probe selection-start probe unwrap-group probe selection-end ; first get to-word selection-start/1
 												probe "ho"
 												select-figure
-												show [face img]
+												show [face canvas]
 											;][
 											;	show-warning 
 											;	either find [transform translate scale skew rotate] selection-start/2 [
@@ -1136,7 +1142,7 @@ ctx: context [
 											][
 												either sel [select-figure/pos sel][none]
 											]
-											show face show img
+											show face show canvas
 										]
 										d3 [new-transformation event/picked]
 									]
@@ -1157,11 +1163,11 @@ ctx: context [
 													copy reduce [to-set-word new-group] 
 													copy/part selection-start group-end ;/copy/deep ??
 												group-end 
-											probe img/draw
+											probe canvas/draw
 											change/part at face/data last-selected new-group face/selected - last-selected + 1
 											face/selected: last-selected
 											select-figure
-											show face show img
+											show face show canvas
 											env/action: 'draw
 										]
 									][select-figure]
@@ -1193,16 +1199,16 @@ ctx: context [
 					return
 					anim-panel: panel 300x25 [
 						origin 0x0 space 4x0
-						text 30x23 "Rate:" a-rate: field 30x23 with [data: 10][img/rate: face/data]
+						text 30x23 "Rate:" a-rate: field 30x23 with [data: 10][canvas/rate: face/data]
 						button "Animate" [
-							insert clear body-of :img/actors/on-time [tick: tick + 1]
-							append body-of :img/actors/on-time bind bind bind append load animations/text [show face] :img/actors/on-time img/actors env
-							img/rate: a-rate/data
-							show img
-							;append img/draw clear []
+							insert clear body-of :canvas/actors/on-time [tick: tick + 1]
+							append body-of :canvas/actors/on-time bind bind bind append load animations/text [show face] :canvas/actors/on-time canvas/actors env
+							canvas/rate: a-rate/data
+							show canvas
+							;append canvas/draw clear []
 						] 
-						button "Stop" [img/rate: none] 
-						button "Continue" [img/rate: a-rate/data show img]
+						button "Stop" [canvas/rate: none] 
+						button "Continue" [canvas/rate: a-rate/data show canvas]
 					]
 				]
 			]
@@ -1219,7 +1225,12 @@ ctx: context [
 			"New" 	new
 			"Open" 	open
 			"Save"	save
-			"Save as.." save-as
+			"Save as .." save-as
+			"Export as .." [
+				"png" png
+				"jpg" jpg
+				"ico" ico
+			]
 		]
 		"Help" help
 	]
@@ -1230,20 +1241,20 @@ ctx: context [
 			win/text: to-local-file last split-path win/extra
 			show win
 		]
-		save-file: does [save win/extra append/only insert/only next [draw animations] img/draw animations/text]
+		save-file: does [save win/extra append/only insert/only next [draw animations] canvas/draw animations/text]
 		on-menu: func [face event /local loaded][
 			switch event/picked [
 				open [
 					win/extra: request-file
 					loaded: load win/extra
-					img/draw: select loaded 'draw
+					canvas/draw: select loaded 'draw
 					animations/text: select loaded 'animations
 					win/text: to-local-file last split-path win/extra
 					redraw
-					figs/data: parse probe img/draw show-figs-rule
+					figs/data: parse probe canvas/draw show-figs-rule
 					figs/selected: 1
 					select-figure
-					show win;[img figs animations]
+					show win;[canvas figs animations]
 				]
 				save [either win/extra [save-file][save-file-as]]
 				save-as [save-file-as]
@@ -1292,7 +1303,7 @@ to change angle, `tick` is preset reserved word counting time ticks,
 			drawing-panel/size: ;as-pair 
 				drawing-panel/parent/size - drawing-panel/offset - 120x50
 				;drawing-panel/parent/size/y - drawing-panel/offset/y - 10
-			img/size: drawing-panel/size
+			canvas/size: drawing-panel/size
 			figs-panel/offset/x: figs-panel/parent/size/x - 110
 			figs-panel/size/y: figs-panel/parent/size/y - figs-panel/offset/y - 15
 			figs1/size/y: figs-panel/size/y
