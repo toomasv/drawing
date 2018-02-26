@@ -1015,6 +1015,32 @@ ctx: context [
 						style fig-list: text-list 100x300 data [] ;265
 						with [
 							menu: [
+								"Format" [	; TBD
+									"Line" [
+										"Width" 	line-width
+										"Join" 		line-join
+										"Cap"		line-cap
+									]
+									"Pen" [
+										"Color" 	pen
+										"Linear"	pen-linear
+										"Radial"	pen-radial
+										"Diamond"	pen-diamond
+										"Pattern" 	pen-pattern
+										"Bitmap"	pen-bitmap
+										"Off"		pen-off
+									]
+									"Fill" [
+										"Color" 	fill
+										"Linear"	fill-linear
+										"Radial"	fill-radial
+										"Diamond"	fill-diamond
+										"Pattern" 	fill-pattern
+										"Bitmap"	fill-bitmap
+										"Off"		fill-off
+									]
+									"Anti-alias"	anti-alias
+								]
 								"Move-z" [
 									"Front" 		front 
 									"Forward" 		forward 
@@ -1024,15 +1050,8 @@ ctx: context [
 									"Before"		before 
 									"Swap"			swap
 								]
-								"Pens" [	; TBD
-									"Line-width" 	line-width
-									"Pen color" 	pen
-									"Pen pattern" 	pen-pattern
-									"Fill color" 	fill
-									"Fill pattern" 	fill-pattern
-								]
-								"Move" 			move ; Check
-								;"Points" 		points ; TBD Edit individual points
+								"Move" 				move ; Check
+								;"Points" 			points ; TBD Edit individual points
 								"Manipulate" [
 									"Translate"		translate
 									"Scale"			scale
@@ -1042,9 +1061,9 @@ ctx: context [
 									"Undo all"		undo-manipulations ; TBD Delete all manipulations
 								]
 								"Transform" [
-									"Rotate"		t-rotate
-									"Scale"			t-scale
 									"Translate"		t-translate
+									"Scale"			t-scale
+									"Rotate"		t-rotate
 									"Undo" [
 										"Rotate"	undo-t-rotate
 										"Scale"		undo-t-scale
@@ -1069,10 +1088,12 @@ ctx: context [
 								]
 								"Insert"		insert ;?? New one just before current one; TBD
 								"Clone"			clone ; TBD Either group or element
-								"Rename"		rename ; TBD
+								"Rename"		rename
 								"Delete" 		delete
-								"3D" ["Rotate" ["x" d3-x-rotate "y" d3-y-rotate "z" d3-z-rotate]
-									  "Translate" ["x" d3-x-translate "y" d3-y-translate "z" d3-z-translate]]
+								"3D" [
+									"Rotate" ["x" d3-x-rotate "y" d3-y-rotate "z" d3-z-rotate] ; TBD
+									"Translate" ["x" d3-x-translate "y" d3-y-translate "z" d3-z-translate] ; TBD
+								]
 							]
 							actors: object [
 								pos: 0x0
@@ -1176,15 +1197,11 @@ ctx: context [
 										]
 										clone []
 										delete [
-											sel: select-figure 
+											probe sel: select-figure 
 											remove at face/data face/selected
-											face/selected: sel
 											remove/part selection-start selection-end
-											selection-start: either block? selection-end [
-												selection-end
-											][
-												either sel [select-figure/pos sel][none]
-											]
+											face/selected: sel
+											select-figure
 											show face show canvas
 										]
 										d3 [new-transformation event/picked]
