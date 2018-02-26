@@ -1,6 +1,6 @@
 Red [
   Author: "Toomas Vooglaid"
-  Last-version: 2018-02-25
+  Last-version: 2018-02-26
 ]
 system/view/auto-sync?: off
 ctx: context [
@@ -72,13 +72,13 @@ ctx: context [
 		selected: any [selected figs/selected ]
 		selected-figure/text: pick figs/data selected
 		show selected-figure
-		probe "sel-start"
+		;probe "sel-start"
 		selection-start: find-figure selected ;find canvas/draw load pick figs/data selected
 		either selected = length? figs/data [
-			probe "sel-end"
+			;probe "sel-end"
 			selection-end: length? selection-start
 			either 1 < selected [selected - 1][none]  ;??? Check it!
-		][probe "not sel-end"
+		][;probe "not sel-end"
 			selection-end: find next selection-start load pick figs/data selected + 1
 			selected
 		]
@@ -88,7 +88,7 @@ ctx: context [
 		either word? figure: load-figure selected [
 			either tail [
 				skip find-deep canvas/draw figure figure-length/pos selected
-			][
+			][;probe reduce ["ff" figure] probe reduce ["ff-fd" find-deep canvas/draw figure]
 				find-deep canvas/draw figure
 			]
 		][
@@ -113,17 +113,19 @@ ctx: context [
 		found
 	]
 	offset: func [_1 _2][offset? find-figure _1 find-figure _2]
-	first-selected?: does [figs/selected = 1]
-	second-selected?: does [figs/selected = 2]
-	last-selected?: does [figs/selected = length? figs/data]
-	last-but-one-selected?: does [(length? figs/data) = (figs/selected + 1)]
+	first-selected?: func [/pos selected][selected: any [selected figs/selected] selected = 1]
+	second-selected?: func [/pos selected][selected: any [selected figs/selected] selected = 2]
+	last-selected?: func [/pos selected][selected: any [selected figs/selected] selected = length? figs/data]
+	last-but-one-selected?: func [/pos selected][selected: any [selected figs/selected] (length? figs/data) = (selected + 1)]
 	next-figure: none
 	redraw: does [canvas/draw/1: canvas/draw/1]
 	figure-length: func [/pos selected /local figure selection][
 		selected: any [selected figs/selected]
+		;probe reduce ["fl-selected" selected] probe reduce ["fl-at" at figs/data selected] probe reduce ["fl-load" load first at figs/data selected]
 		figure: load first selection: at figs/data selected
+		;probe reduce ["fl-fig" figure]
 		any [
-			all [word? figure last-selected? selected length? find-figure selected]
+			all [word? figure last-selected?/pos selected length? find-figure selected]
 			all [word? figure offset selected selected + 1]
 			length? figure
 		]
@@ -171,8 +173,8 @@ ctx: context [
 		]
 
 	]
-	move-selection: func [to-position][
-		switch to-position [
+	move-selection: func [position /from pos1 /to pos2 /local tmp][
+		switch position [; There seems to be some bug still!
 			front [
 				unless last-selected? [
 					move/part selection-start tail selection-start figure-length
@@ -201,19 +203,42 @@ ctx: context [
 			]
 			back [
 				unless first-selected? [
-					move/part selection-start head selection-start probe figure-length
+					either canvas/draw/1 = 'matrix [
+						move/part selection-start at canvas/draw 3 figure-length
+					][
+						move/part selection-start head selection-start figure-length
+					]
 					move-in-list 'back
 					figs/selected: 1
 				]
 			]
-			before [
-				
+			before [;probe reduce ["ss" selection-start] probe reduce ["new" find-figure pos2] probe reduce ["len" figure-length/pos pos1]
+				either pos1 > pos2 [
+					move/part selection-start find-figure pos2 figure-length/pos pos1
+					move at figs/data pos1 at figs/data pos2
+				][
+					move/part selection-start skip find-figure pos2 -1 figure-length/pos pos1
+					move at figs/data pos1 at figs/data pos2 - 1
+				]
+				figs/selected: pos2
+			]
+			swap [
+				if pos1 < pos2 [tmp: pos2 pos2: pos1 pos1: tmp]
+				select-figure/pos pos1
+				figs/selected: pos2
+				move/part selection-start find-figure pos2 figure-length/pos pos1
+				select-figure
+				either pos1 = length? figs/data [
+					move/part selection-start tail selection-start figure-length
+				][
+					move/part selection-start skip find-figure pos1 + 1 -1 figure-length
+				]
+				swap at figs/data pos1 at figs/data pos2
 			]
 		]
-		;move-in-list to-position
 		select-figure 
 		show [figs canvas] adjust-pens
-		probe canvas/draw
+		;probe canvas/draw
 	]
 	insert-manipulation: func [type][
 		change/part next selection-start 
@@ -528,11 +553,10 @@ ctx: context [
 								]
 								on-down: func [face event /local code][;probe reduce [figure step pos1]; draw
 									pos1: event/offset
-									if face/draw/2 = 'matrix [probe "ho"
+									if face/draw/1 = 'matrix [
 										mxpos: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;_Matrix/2/5 _Matrix/2/6;
 										pos1: as-pair to-integer round pos1/x / _Matrix/2/1 to-integer round pos1/y / _Matrix/2/4;_Matrix/1 to-integer round pos1/y / _Matrix/4;_Matrix/2/1 to-integer round pos1/y / _Matrix/2/4;
 										pos1: subtract pos1 mxpos / _Matrix/2/1;_Matrix/1;_Matrix/2/1;
-										probe "hu"
 									]
 									if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
 										pos1/x: round/to pos1/x g-size/data/x pos1/y: round/to pos1/y g-size/data/y
@@ -766,7 +790,7 @@ ctx: context [
 											start?: false
 										][	
 											pos2: event/offset
-											if face/draw/2 = 'matrix [
+											if face/draw/1 = 'matrix [
 												mxpos: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;_Matrix/2/5 _Matrix/2/6;
 												pos2: as-pair to-integer round pos2/x / _Matrix/2/1 to-integer round pos2/y / _Matrix/2/4;_Matrix/1 to-integer round pos2/y / _Matrix/4;_Matrix/2/1 to-integer round pos2/y / _Matrix/2/4;
 												pos2: subtract pos2 mxpos / _Matrix/2/1;_Matrix/1 ; 
@@ -775,183 +799,184 @@ ctx: context [
 											if any [all [grid/data not event/shift?] all [not grid/data event/shift?]][
 												pos2/x: round/to pos2/x g-size/data/x pos2/y: round/to pos2/y g-size/data/y
 											]
-											if pos2 <> pos-tmp [probe reduce ["pos2:" pos2 pos-tmp] pos-tmp: pos2]
-											either event/ctrl? [
-												either ortho? [
-													either cx [pos2/x: cx][pos2/y: cy] ;probe reduce [cx cy]
+											if pos2 <> pos-tmp [;probe reduce ["pos2:" pos2 pos-tmp] pos-tmp: pos2]
+												either event/ctrl? [
+													either ortho? [
+														either cx [pos2/x: cx][pos2/y: cy] ;probe reduce [cx cy]
+													][
+														ortho?: on either lesser? absolute diff/x absolute diff/y [cx: pos1/x cy: none][cy: pos1/y cx: none]
+													]
 												][
-													ortho?: on either lesser? absolute diff/x absolute diff/y [cx: pos1/x cy: none][cy: pos1/y cx: none]
+													ortho?: off cx: cy: none
 												]
-											][
-												ortho?: off cx: cy: none
-											]
-											diff: pos2 - pos1
-											ang: round/to 180 / pi * arctangent2 diff/y diff/x either any [
-												all [grid/data not event/shift?] all [not grid/data event/shift?]
-											][g-angle/data][.1]
-											hyp: sqrt add diff/x ** 2 diff/y ** 2
-											over-params/text: rejoin ["d: " diff " r: " round/to hyp .1 " α: " ang]
-											recalc-info
-											switch action [
-												draw [;probe event/flags
-													case [
-														all [figure = 'polygon step = 1][; triangle?
-															either last-action = 'insert [
-																poke selection-start subtract offset? selection-start next-figure 1 pos2
-																poke selection-start offset? selection-start next-figure pos2
-															][
-																poke selection-start subtract length? selection-start 1 pos2
-																poke selection-start length? selection-start pos2
-															]
-														]
-														find [arc sector] figure [
-															switch step [
-																1 [
-																	pre-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either any [
-																		all [grid/data not event/shift?] all [not grid/data event/shift?]
-																	][g-angle/data][1] ; 
-																	selection-start/3: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either any [
-																		all [grid/data not event/shift?] all [not grid/data event/shift?]
-																	] [g-angle/data][1]
-																	last-cur-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either any [
-																		all [grid/data not event/shift?] all [not grid/data event/shift?]
-																	] [g-angle/data][1]
-																	selection-start/5/3: as-pair i: sqrt add power diff/x 2 power diff/y 2 i
-																]
-																2 [	
-																	diff: event/offset - last-pos
-																	cur-angle: round/to 180 / pi * arctangent2 diff/y diff/x either any [
-																		all [grid/data not event/shift?] all [not grid/data event/shift?]
-																	] [g-angle/data][1]
-																	diff2: cur-angle - pre-angle
-																	case [
-																		all [last-cur-angle > 170 	cur-angle < -170]	[sector: pick ['negative 'positive] direction = 'cw]
-																		all [last-cur-angle < -170 	cur-angle > 170]	[sector: pick ['positive 'negative] direction = 'cw]
-																		all [pre-angle - 180 - last-cur-angle >= 0 pre-angle - 180 - cur-angle < 0]	[direction: 'cw  sector: 'positive]
-																		all [pre-angle - 180 - last-cur-angle < 0 pre-angle - 180 - cur-angle >= 0]	[direction: 'ccw sector: 'negative]
-																	]
-																	last-cur-angle: cur-angle
-																	poke selection-start/5 5 case [
-																		all [direction = 'cw  sector = 'negative][540 + diff2]
-																		all [direction = 'ccw sector = 'positive][-180 + diff2]
-																		'else [180 + diff2]
-																	]
-																	;selection-start/4: selection-start/4
-																	redraw
-																]
-															]
-														]
-														figure = 'program []
-														figure = 'freehand [
-															if pos2 <> pos1 [
-																switch step [
-																	1 [poke selection-start length? selection-start pos2 pos1: pos2 env/step: 2]
-																	2 [append selection-start pos2 pos1: pos2]
-																]
-															]
-														]
-														figure = 'image [
-															switch step [
-																1 [append selection-start pos2 env/step: 2]
-																2 [poke selection-start length? selection-start pos2]
-															]
-														]
-														'else [
-															either last-action = 'insert [
-																poke selection-start offset? selection-start next-figure switch/default figure [
-																	square [dim: max diff/x diff/y pos1 + as-pair dim dim]
-																	ellipse [diff]
-																	circle [sqrt add power diff/x 2 power diff/y 2]
-																][pos2]
-															][
-																poke selection-start length? selection-start switch/default figure [
-																	square [dim: max diff/x diff/y pos1 + as-pair dim dim]
-																	ellipse [diff]
-																	circle [sqrt add power diff/x 2 power diff/y 2]
-																][pos2] 
-															]
-														]
-													]
-													;redraw
-													show face
-												]
-												move [; ???? Major reformulation needed
-													unless find [pen fill-pen line-width] selection-start/1 [
-														switch selection-start/2 [
-															circle or ellipse [
-																selection-start/3: selection-start/3 + diff
-																pos1: event/offset
-															]
-															box or line or polygon	[;probe reduce [selection-start selection-end]
-																pnum: either block? selection-end [
-																	subtract subtract index? selection-end index? selection-start 2
+												diff: pos2 - pos1
+												ang: round/to 180 / pi * arctangent2 diff/y diff/x either any [
+													all [grid/data not event/shift?] all [not grid/data event/shift?]
+												][g-angle/data][.1]
+												hyp: sqrt add diff/x ** 2 diff/y ** 2
+												over-params/text: rejoin ["d: " diff " r: " round/to hyp .1 " α: " ang]
+												recalc-info
+												switch action [
+													draw [;probe event/flags
+														case [
+															all [figure = 'polygon step = 1][; triangle?
+																either last-action = 'insert [
+																	poke selection-start subtract offset? selection-start next-figure 1 pos2
+																	poke selection-start offset? selection-start next-figure pos2
 																][
-																	subtract length? selection-start 2
+																	poke selection-start subtract length? selection-start 1 pos2
+																	poke selection-start length? selection-start pos2
 																]
-																repeat i pnum [
-																	j: i + 2
-																	poke selection-start j selection-start/:j + diff 
+															]
+															find [arc sector] figure [
+																switch step [
+																	1 [
+																		pre-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either any [
+																			all [grid/data not event/shift?] all [not grid/data event/shift?]
+																		][g-angle/data][1] ; 
+																		selection-start/3: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either any [
+																			all [grid/data not event/shift?] all [not grid/data event/shift?]
+																		] [g-angle/data][1]
+																		last-cur-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either any [
+																			all [grid/data not event/shift?] all [not grid/data event/shift?]
+																		] [g-angle/data][1]
+																		selection-start/5/3: as-pair i: sqrt add power diff/x 2 power diff/y 2 i
+																	]
+																	2 [	
+																		diff: event/offset - last-pos
+																		cur-angle: round/to 180 / pi * arctangent2 diff/y diff/x either any [
+																			all [grid/data not event/shift?] all [not grid/data event/shift?]
+																		] [g-angle/data][1]
+																		diff2: cur-angle - pre-angle
+																		case [
+																			all [last-cur-angle > 170 	cur-angle < -170]	[sector: pick ['negative 'positive] direction = 'cw]
+																			all [last-cur-angle < -170 	cur-angle > 170]	[sector: pick ['positive 'negative] direction = 'cw]
+																			all [pre-angle - 180 - last-cur-angle >= 0 pre-angle - 180 - cur-angle < 0]	[direction: 'cw  sector: 'positive]
+																			all [pre-angle - 180 - last-cur-angle < 0 pre-angle - 180 - cur-angle >= 0]	[direction: 'ccw sector: 'negative]
+																		]
+																		last-cur-angle: cur-angle
+																		poke selection-start/5 5 case [
+																			all [direction = 'cw  sector = 'negative][540 + diff2]
+																			all [direction = 'ccw sector = 'positive][-180 + diff2]
+																			'else [180 + diff2]
+																		]
+																		;selection-start/4: selection-start/4
+																		redraw
+																	]
 																]
-																pos1: event/offset
+															]
+															figure = 'program []
+															figure = 'freehand [
+																if pos2 <> pos1 [
+																	switch step [
+																		1 [poke selection-start length? selection-start pos2 pos1: pos2 env/step: 2]
+																		2 [append selection-start pos2 pos1: pos2]
+																	]
+																]
+															]
+															figure = 'image [
+																switch step [
+																	1 [append selection-start pos2 env/step: 2]
+																	2 [poke selection-start length? selection-start pos2]
+																]
+															]
+															'else [
+																either last-action = 'insert [
+																	poke selection-start offset? selection-start next-figure switch/default figure [
+																		square [dim: max diff/x diff/y pos1 + as-pair dim dim]
+																		ellipse [diff]
+																		circle [sqrt add power diff/x 2 power diff/y 2]
+																	][pos2]
+																][
+																	poke selection-start length? selection-start switch/default figure [
+																		square [dim: max diff/x diff/y pos1 + as-pair dim dim]
+																		ellipse [diff]
+																		circle [sqrt add power diff/x 2 power diff/y 2]
+																	][pos2] 
+																]
 															]
 														]
-														show face ;canvas
-													]
-												]
-												translate [
-													if step = 2 [
-														selection-start/3: diff
+														;redraw
 														show face
 													]
-												]
-												scale [
-													if step = 2 [
-														selection-start/3: add 1 diff/x / 100.0 
-														selection-start/4: add 1 diff/y / 100.0
-														show face
+													move [; ???? Major reformulation needed
+														unless find [pen fill-pen line-width] selection-start/1 [
+															switch selection-start/2 [
+																circle or ellipse [
+																	selection-start/3: selection-start/3 + diff
+																	pos1: event/offset
+																]
+																box or line or polygon	[;probe reduce [selection-start selection-end]
+																	pnum: either block? selection-end [
+																		subtract subtract index? selection-end index? selection-start 2
+																	][
+																		subtract length? selection-start 2
+																	]
+																	repeat i pnum [
+																		j: i + 2
+																		poke selection-start j selection-start/:j + diff 
+																	]
+																	pos1: event/offset
+																]
+															]
+															show face ;canvas
+														]
 													]
-												]
-												skew [
-													if step = 2 [
-														selection-start/3: diff/x 
-														selection-start/4: diff/y
-														show face
+													translate [
+														if step = 2 [
+															selection-start/3: diff
+															show face
+														]
 													]
-												]
-												rotate [
-													if step = 2 [
-														selection-start/3: round/to 180 / pi * arctangent2  diff/y diff/x either any [
-															all [grid/data not event/shift?] all [not grid/data event/shift?]
-														] [g-angle/data][.1]
-														show face 
+													scale [
+														if step = 2 [
+															selection-start/3: add 1 diff/x / 100.0 
+															selection-start/4: add 1 diff/y / 100.0
+															show face
+														]
 													]
-												]
-												t-rotate [
-													if step = 2 [
-														selection-start/4: round/to 180 / pi * arctangent2  diff/y diff/x either any [
-															all [grid/data not event/shift?] all [not grid/data event/shift?]
-														] [g-angle/data][.1]
-														show face 
+													skew [
+														if step = 2 [
+															selection-start/3: diff/x 
+															selection-start/4: diff/y
+															show face
+														]
 													]
-												]
-												t-scale [
-													if step = 2 [
-														selection-start/5: add 1 diff/x / 100.0
-														selection-start/6: add 1 diff/y / 100.0
-														show face
+													rotate [
+														if step = 2 [
+															selection-start/3: round/to 180 / pi * arctangent2  diff/y diff/x either any [
+																all [grid/data not event/shift?] all [not grid/data event/shift?]
+															] [g-angle/data][.1]
+															show face 
+														]
 													]
-												]
-												t-translate [
-													if step = 2 [
-														selection-start/7: diff + pre-diff
-														show face
+													t-rotate [
+														if step = 2 [
+															selection-start/4: round/to 180 / pi * arctangent2  diff/y diff/x either any [
+																all [grid/data not event/shift?] all [not grid/data event/shift?]
+															] [g-angle/data][.1]
+															show face 
+														]
 													]
+													t-scale [
+														if step = 2 [
+															selection-start/5: add 1 diff/x / 100.0
+															selection-start/6: add 1 diff/y / 100.0
+															show face
+														]
+													]
+													t-translate [
+														if step = 2 [
+															selection-start/7: diff + pre-diff
+															show face
+														]
+													]
+													;animate [
+													;	if all [step = 2 canvas/rate] [
+													;		canvas/rate: either 0 < diff/x [canvas/rate + diff/x][0:0:1 + divide absolute diff/x 10]
+													;	]
+													;]
 												]
-												;animate [
-												;	if all [step = 2 canvas/rate] [
-												;		canvas/rate: either 0 < diff/x [canvas/rate + diff/x][0:0:1 + divide absolute diff/x 10]
-												;	]
-												;]
 											]
 										]
 										redraw
@@ -995,15 +1020,17 @@ ctx: context [
 									"Forward" 		forward 
 									"Backward" 		backward 
 									"Back" 			back 
-									"Before"		before ;TBD Move before the next selected element
-								];"---"
+									"---"
+									"Before"		before 
+									"Swap"			swap
+								]
 								"Pens" [	; TBD
 									"Line-width" 	line-width
 									"Pen color" 	pen
 									"Pen pattern" 	pen-pattern
 									"Fill color" 	fill
 									"Fill pattern" 	fill-pattern
-								];"---"
+								]
 								"Move" 			move ; Check
 								;"Points" 		points ; TBD Edit individual points
 								"Manipulate" [
@@ -1050,6 +1077,8 @@ ctx: context [
 							actors: object [
 								pos: 0x0
 								last-selected: none
+								last-length: none
+								last-tail: none
 								;on-down: func [face event][
 								;	pos: event/offset
 								;]
@@ -1065,11 +1094,12 @@ ctx: context [
 											show drawing-panel
 										]
 
-										front [move-selection 'front]
-										forward [move-selection 'forward]
-										backward [move-selection 'backward]
-										back [move-selection 'back]
-										before [move-selection 'before] ;??? TBD
+										front 		[move-selection 'front]
+										forward 	[move-selection 'forward]
+										backward 	[move-selection 'backward]
+										back 		[move-selection 'back]
+										before 		[env/action: 'before] 
+										swap 		[env/action: 'swap]
 										translate or scale or skew or rotate [new-manipulation event/picked]
 										undo-manipulation []
 										undo-manipulations []
@@ -1163,23 +1193,38 @@ ctx: context [
 								on-down: func [face event][env/figs: face]
 								;on-up: func [face event][probe "up"];selected-figure: pick face/data face/selected show selected-figure]
 								on-select: func [face event][
-									if action = 'group [last-selected: face/selected]
+									switch action [
+										group [last-selected: face/selected]
+										before or swap [
+											last-selected: face/selected
+											last-length: figure-length
+										]
+									]
 								]
-								on-change: func [face event /local group-end new-group][;probe reduce ["change" selection-start selection-end] ; NB! adaption of menu here
+								on-change: func [face event /local new-selected new-group][;probe reduce ["change" selection-start selection-end] ; NB! adaption of menu here
 									switch/default action [
 										group [
-											group-end: find-figure/tail face/selected
+											new-selected: find-figure/tail face/selected
 											either figures/group [figures/group: figures/group + 1][figures/group: 1]
 											new-group: rejoin ['group figures/group]
 											change/part selection-start 
 												append/only 
 													copy reduce [to-set-word new-group] 
-													copy/part selection-start group-end ;/copy/deep ??
-												group-end 
-											probe canvas/draw
+													copy/part selection-start new-selected ;/copy/deep ??
+												new-selected 
 											change/part at face/data last-selected new-group face/selected - last-selected + 1
 											face/selected: last-selected
 											select-figure
+											show face show canvas
+											env/action: 'draw
+										]
+										before [
+											move-selection/from/to 'before last-selected face/selected
+											show face show canvas
+											env/action: 'draw
+										]
+										swap [
+											move-selection/from/to 'swap last-selected face/selected
 											show face show canvas
 											env/action: 'draw
 										]
