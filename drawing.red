@@ -1,6 +1,6 @@
 Red [
 	Author: "Toomas Vooglaid"
-	Last-version: 2018-02-26
+	Last-version: 2018-02-27
 	File: %drawing.red
 	Needs: 'View
 ]
