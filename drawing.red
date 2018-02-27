@@ -11,7 +11,7 @@ ctx: context [
 	start?: true
 	figure: none;'line
 	figures: #()
-	transparent: 254.254.254 ; ????
+	transparent: 254.254.254.254 ; ????
 	colors: exclude sort extract load help-string tuple! 2 [glass]
 	pallette: copy [title "Select color" origin 1x1 space 1x1 style clr: base 15x15]
 	x: 0 
