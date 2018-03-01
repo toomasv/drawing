@@ -1,6 +1,6 @@
 Red [
 	Author: "Toomas Vooglaid"
-	Last-version: 2018-02-27
+	Last-version: 2018-03-1
 	File: %drawing.red
 	Needs: 'View
 ]
@@ -11,19 +11,163 @@ ctx: context [
 	start?: true
 	figure: none;'line
 	figures: #()
-	transparent: 254.254.254.254 ; ????
+	figure-dic: #()
+	figure-prop: #(
+		line: 		[copy _points  [pair! some pair!]]
+		box: 		[set  _top-left pair! set _bottom-right pair!]  ; add corner
+		circle: 	[set  _center   pair! set _radius [integer! | float!]]
+		ellipse:	[set  _top-left pair! set _dimensions pair!]
+		polygon:	[copy _points  [pair! pair! some pair!]]
+		arc:		[set  _center   pair! set _radius pair! set _begin integer! set _sweep integer! opt 'closed]
+		text:		[set  _position pair! string!]
+		image: 		[[image! | word!] set _top-left pair! opt [set _bottom-right pair!]]
+	)
+	figure-move-points: #(
+		line: 		[all]
+		box: 		[2 3]  
+		circle: 	[2]
+		ellipse:	[2]
+		polygon:	[all]
+		arc:		[2]
+		text:		[2]
+		image: 		[3 4]		
+	)
+	figure-points: [
+		line: 		[keep some pair!]
+		box: 		[keep [pair! pair!]]  
+		circle: 	[keep pair!]
+		ellipse:	[keep pair!]
+		polygon:	[keep some pair!]
+		arc:		[keep pair!]
+		text:		[keep pair!]
+		image: 		[[image! | word!] keep pair! opt [keep pair!]]		
+	]
+	color-word: [
+		  'Red    | 'white   | 'transparent | 'black  | 'gray    | 'aqua    | 'beige  | 'blue 
+		| 'brick  | 'brown   | 'coal        | 'coffee | 'crimson | 'cyan    | 'forest | 'gold 
+		| 'green  | 'ivory   | 'khaki       | 'leaf   | 'linen   | 'magenta | 'maroon | 'mint 
+		| 'navy   | 'oldrab  | 'olive       | 'orange | 'papaya  | 'pewter  | 'pink   | 'purple 
+		| 'reblue | 'rebolor | 'sienna      | 'silver | 'sky     | 'snow    | 'tanned | 'teal 
+		| 'violet | 'water   | 'wheat       | 'yello  | 'yellow  | 'glass
+	]
+	system/words/transparent: 255.255.255.254 ; ????
 	colors: exclude sort extract load help-string tuple! 2 [glass]
 	pallette: copy [title "Select color" origin 1x1 space 1x1 style clr: base 15x15]
 	x: 0 
-	foreach j colors [
-		append pallette compose/deep [
-			clr (j) 
-			on-up [color: (either j = 'transparent [probe 'off][to-lit-word j]) unview]; return 'stop]
+	color: none
+	color-bag: copy []
+	dn?: none
+	make-pallette: has [j][
+		clear color-bag
+		foreach j colors [
+			append pallette compose/deep [
+				clr (j) 
+				on-down [dn?: true]
+				on-up [
+					if dn? [
+						either event/shift? [
+							append env/color-bag (to-lit-word j)
+						][
+							env/color: either empty? env/color-bag [
+								(to-lit-word j)
+							][
+								append env/color-bag (to-lit-word j)
+							]
+							unview
+						]
+					]
+				]
+			] 
+			if (x: x + 1) % 9 = 0 [append pallette 'return]
 		] 
-		if (x: x + 1) % 9 = 0 [append pallette 'return]
-	] 
+	]
+	make-pallette 
 	color: black
-	select-color: does [view/flags pallette [modal popup]]
+	select-color: does [clear color-bag view/flags pallette [modal popup]]
+	sz: 150x150
+	grad-palette: make image! sz
+	draw grad-palette compose [
+		pen off
+		fill-pen linear red orange yellow green aqua blue purple
+		box 0x0 (sz)
+		fill-pen linear white glass black 0x0 (as-pair 0 sz/y)
+		box 0x0 (sz)
+	]
+	request-color: has [dn? sz colors][; Adapted from @greggirwin's %red-paint-with-time-travel.red
+		colors: copy []
+		view/flags [
+			title "Select color"
+			image grad-palette on-down [dn?: true] on-up [
+				if dn? [
+					either event/shift? [
+						append colors pick grad-palette event/offset
+					][
+						env/color: either empty? colors [
+							pick grad-palette event/offset
+						][  
+							append colors pick grad-palette event/offset
+						]
+						unview
+					]
+				]
+			]
+		][modal popup]
+	]
+	skip-colors: 0
+	set-gradient: func [pen type pos1][
+		either block? env/color [
+			skip-colors: length? env/color
+			either selection-start/2 = 'push [
+				;probe reduce [selection-start/3 type find/last selection-start/3 type find find/last selection-start/3 type pair!]
+				either found-format: find/last/tail selection-start/3 pen [;find-deep selection-start/3 type [
+					switch step [
+						1 [
+							parse found-format [s: [
+								if (any [find color-word s/1 tuple? s/1]) skip e: 
+							| 	thru ['pad | 'repeat | 'reflect] e: ; | 'tile | 'flip-x | 'flip-y | 'flip-xy | 'clamp] e:
+							] (
+								;probe s probe e probe env/color
+								change/part s append insert env/color type reduce switch type [
+									linear [[pos1 pos1 'pad]] 
+									radial [[pos1 0 pos1 'pad]]
+									diamond [[pos1 pos1 pos1 'pad]]
+								] e
+							)]
+							skip-colors: skip-colors + 4
+						]
+						2 [
+							found-format: find found-format pair!
+							change/part found-format reduce switch type [
+								linear [[pos1 pos1]] 
+								radial [[pos1 0 pos1]]
+								diamond [[pos1 pos1 pos1]]
+							] pick [2 3] type = 'linear
+							skip-colors: 1 + index? found-format
+						]
+					]
+				][
+					insert selection-start/3 append append reduce [pen type] env/color probe reduce switch type [
+						linear [[pos1 pos1 'pad]] 
+						radial [[pos1 0 pos1 'pad]]
+						diamond [[pos1 pos1 pos1 'pad]]
+					]
+					skip-colors: skip-colors + 4
+				]
+			][
+				change/part next selection-start 
+					append/only copy [push] 
+						probe append append append reduce [pen type] env/color reduce switch type [
+						linear [[pos1 pos1 'pad]] 
+						radial [[pos1 0 pos1 'pad]]
+						diamond [[pos1 pos1 pos1 'pad]]
+					] 
+					copy/part next selection-start selection-end 
+					selection-end
+				skip-colors: skip-colors + 4
+			]
+			env/step: 2
+		][probe "Use shift while gathering at least two colors!"]
+	]
 	result: none
 	write-program: has [result][
 		prg-win: view/flags/no-wait [
@@ -35,7 +179,7 @@ ctx: context [
 			button "Cancel" [result: copy "" unview]
 		][modal popup resize]
 		prg-win/actors: [
-			on-resize: func [f e][probe "hi"
+			on-resize: func [f e][
 				result/size: result/parent/size
 				show result
 			]
@@ -75,24 +219,26 @@ ctx: context [
 	]
 	action: 'draw
 	last-action: none
-	canvas: edit-points-layer: none
+	canvas: none
 	figs: figs1: figs2: figs3: figs4: none
 	sep1: sep2: sep3: none
 	selection-start: none
 	selection-end: none
 	select-figure: func [/pos selected][; returns new `selected` for figs while deleting 
 		selected: any [selected figs/selected ]
-		selected-figure/text: pick figs/data selected
-		show selected-figure
-		;probe "sel-start"
-		selection-start: find-figure selected ;find canvas/draw load pick figs/data selected
-		either selected = length? figs/data [
-			;probe "sel-end"
-			selection-end: length? selection-start
-			either 1 < selected [selected - 1][none]  ;??? Check it!
-		][;probe "not sel-end"
-			selection-end: find next selection-start load pick figs/data selected + 1
-			selected
+		if selected [
+			selected-figure/text: pick figs/data selected
+			show selected-figure
+			;probe "sel-start"
+			selection-start: find-figure selected ;find canvas/draw load pick figs/data selected
+			either selected = length? figs/data [
+				;probe "sel-end"
+				selection-end: length? selection-start
+				either 1 < selected [selected - 1][none]  ;??? Check it!
+			][;probe "not sel-end"
+				selection-end: find next selection-start load pick figs/data selected + 1
+				selected
+			]
 		]
 	]
 	load-figure: func [fig][load pick figs/data fig]; Can be word! or block! (in case it is `pen`, `fill-pen` or `line-width`)
@@ -144,31 +290,40 @@ ctx: context [
 	]
 	adjust-pens: has [found][
 		if found: find/last canvas/draw 'line-width [pen-width/data: found/2 show pen-width]
-		if found: find/last canvas/draw 'pen 		 [pen-color/color: get found/2 show pen-color]
-		if found: find/last canvas/draw 'fill-pen   [fill-color/color: get found/2 show fill-color]
+		if found: find/last canvas/draw 'pen 		[pen-color/color: found/2 show pen-color]
+		if found: find/last canvas/draw 'fill-pen   [fill-color/color: found/2 show fill-color]
 	]
 	join: cap: none
 	line-joins: copy []
-	format-local: func [param value][probe reduce [param value]
+	format-local: func [param value][
 		either selection-start/2 = 'push [
 			either found-format: find/last selection-start/3 param [
-				change next found-format probe value
+				either all [
+					find [pen fill-pen] param 
+					not any [find color-word found-format/2 tuple? found-format/2]
+				][
+					parse next found-format [s: thru ['pad | 'repeat | 'reflect] e: (change/part s value e)]
+				][
+					change next found-format value
+				]
 			][
-				insert selection-start/3 probe reduce [param value]
+				insert selection-start/3 reduce [param value]
 			]
 		][
 			change/part next selection-start 
 				append/only copy [push] 
-					probe append reduce [param value] 
+					append reduce [param value] 
 						copy/part next selection-start selection-end 
 				selection-end
 		]
 		env/action: 'draw recalc-info
-		redraw ;show canvas 
+		redraw ;show canvas  
 	]
 	foreach join [miter bevel round] [
 		append line-joins compose/deep [
-			box 20x20 with [extra: (to-lit-word join)] draw [pen gray box 0x0 19x19 pen black line-join (join) anti-alias off line-width 4 line 4x4 15x15 4x15][
+			box 22x22 with [extra: (to-lit-word join)] draw [
+				pen gray box 0x0 21x21 pen black line-join (join) anti-alias off line-width 5 line 4x4 15x15 4x15
+			][
 				switch/default action [
 					insert [] ; TBD
 					line-join [format-local 'line-join face/extra]
@@ -185,7 +340,9 @@ ctx: context [
 	line-caps: copy []
 	foreach cap [flat square round] [
 		append line-caps compose/deep [
-			box 20x20 with [extra: (to-lit-word cap)] draw [pen gray box 0x0 19x19 pen black line-cap (cap) anti-alias off line-width 4 line 4x10 15x10][
+			box 22x22 with [extra: (to-lit-word cap)] draw [
+				pen gray box 0x0 21x21 pen black line-cap (cap) anti-alias off line-width 5 line 5x10 16x10
+			][
 				switch/default action [
 					insert [] ; TBD
 					line-cap [format-local 'line-cap face/extra]
@@ -213,6 +370,7 @@ ctx: context [
 
 	]
 	move-selection: func [position /from pos1 /to pos2 /local tmp][
+		probe reduce ["pre" selection-start]
 		switch position [; There seems to be some bug still!
 			front [
 				unless last-selected? [
@@ -283,32 +441,41 @@ ctx: context [
 			]
 		]
 		select-figure 
+		probe reduce ["post" selection-start]
 		show [figs canvas] adjust-pens
 		;probe canvas/draw
 	]
 	insert-manipulation: func [type][
-		change/part next selection-start 
-		append/only copy switch type [
-			translate 	[[translate 0x0]]
-			scale 		[[scale 1 1]]
-			skew		[[skew 0 0]]
-			rotate		[[rotate 0 0x0]]
-			transform	[if integer? selection-end [selection-end: selection-end + 6] [transform 0x0 0 1 1 0x0]]
+		either selection-start/2 = 'push [
+			insert selection-start/3 switch type [
+				translate 	[[translate 0x0]]
+				scale 		[[scale 1 1]]
+				skew		[[skew 0 0]]
+				rotate		[[rotate 0 0x0]]
+				transform	[if integer? selection-end [selection-end: selection-end + 6] [transform 0x0 0 1 1 0x0]]
+			]
+		][
+			change/part next selection-start 
+				append/only copy [push] 
+					append copy switch type [
+						translate 	[[translate 0x0]]
+						scale 		[[scale 1 1]]
+						skew		[[skew 0 0]]
+						rotate		[[rotate 0 0x0]]
+						transform	[if integer? selection-end [selection-end: selection-end + 6] [transform 0x0 0 1 1 0x0]]
+					]	copy/part next selection-start selection-end
+				selection-end
 		]
-		copy/part next selection-start selection-end
-		probe selection-end
 	]
-	new-manipulation: func [type][
-		insert-manipulation type
-		action: type
-		step: 1
-	]
-	new-transformation: func [type][
-		unless 'transform = second selection-start [;first get load-figure figs/selected [
+	;new-manipulation: func [type][
+	;	insert-manipulation type
+	;	action: type
+	;	step: 1
+	;]
+	new-transformation: does [
+		unless all [selection-start/2 = 'push selection-start/3/1 = 'transform] [
 			insert-manipulation 'transform
 		]
-		action: type
-		step: 1
 	]
 	in-group?: false
 	show-group-rule: [
@@ -340,18 +507,24 @@ ctx: context [
 		selection-start/2
 	]
 	count: 0
+	
+	; Grid-layer
+	grid-layer: none
+	; Edit-layer
 	;found-transformations: found-formatting: 
 	;found-figures: make block! 10
-	figure-points: [
+	edit-points-layer: none
+	copied-fig: copy []
+	figure-points2: [
 		some [s: 
 			set-word!
-		|	keep 'transform keep [pair! number! number! number! pair!] into figure-points
-		|	keep 'translate keep pair! into figure-points
-		|	keep 'scale keep [number! number!] into figure-points
-		|	keep 'skew keep [number! number!] into figure-points
-		| 	keep 'rotate keep [number! pair!] into figure-points
+		|	keep 'transform keep [pair! number! number! number! pair!] into figure-points2
+		|	keep 'translate keep pair! into figure-points2
+		|	keep 'scale keep [number! number!] into figure-points2
+		|	keep 'skew keep [number! number!] into figure-points2
+		| 	keep 'rotate keep [number! pair!] into figure-points2
 		|	keep 'line keep [pair! some pair!]
-		|	keep 'box keep [pair! pair! opt integer!]
+		|	keep 'box keep pair! keep pair! opt keep integer!
 		|	keep 'polygon keep [pair! pair! some pair!]
 		|	keep 'circle keep [pair! 1 2 number!]
 		|	keep 'ellipse keep [pair! pair!]
@@ -363,8 +536,8 @@ ctx: context [
 		| 	skip
 		]
 	]
-	copied-fig: none
 	bind-figure-points: does [
+		clear copied-fig
 		;foreach [fig points] parse copied-fig: copy/part selection-start selection-end [collect figure-points] [
 		;	probe reduce [fig points]
 			
@@ -372,8 +545,8 @@ ctx: context [
 			;	at (point - 5) box 11x11 loose draw [pen blue fill-pen 254.254.254.254 circle 5x5 5]
 			;]
 		;]
-		copied-fig: copy/part selection-start selection-end [collect figure-points]
-		insert edit-points-layer/draw next head insert next copied-fig [pen blue]
+		parse copy/part selection-start selection-end [collect into copied-fig figure-points2]
+		insert edit-points-layer/draw head insert copied-fig [pen blue]
 		;append drawing-panel/pane layout/only compose/deep [
 		;	at 0x0 box (drawing-panel/size) draw [(drw)] 
 		;]
@@ -409,6 +582,20 @@ ctx: context [
 	format: 1 ; line-width
 	found-format: none
 	drawing-on-grid?: func [shift?][any [all [grid/data not shift?] all [not grid/data shift?]]]
+	current-pen: current-type: current-gradient: none ; for gradients
+	
+	pen-color: pen-color2: fill-color: fill-color2: none
+	
+	format-params: [pen fill-pen line-width line-join line-cap]
+	manipulation-params: [transform translate scale skew rotate]
+	format-or-manipulation-params: append copy format-params copy manipulation-params
+	figure-proper: none
+	move?: none
+	move-points: copy []
+	moveable: none
+	find-figure-proper: does [
+		find-deep selection-start select figure-dic pick figs/data figs/selected
+	]
 	
 	win: layout compose/deep [
 		title "Drawing pad"
@@ -426,11 +613,12 @@ ctx: context [
 						current-step: text 40x20
 					]
 					return
-					edit-panel: panel 480x30 [origin 0x0 space 4x0
+					edit-panel: panel 480x30 [
+						origin 0x0 space 4x0
 						text 50x20 "Selected:" 
 							selected-figure: text 80x20 
-						grid: check "Grid:" 45x20
-							g-size: field 40x20 "10x10" 
+						grid: check "Grid:" 45x20 [grid-layer/visible?: face/data poke find grid-layer/draw pair! 1 g-size/data show grid-layer]
+							g-size: field 40x20 "10x10" [poke find grid-layer/draw pair! 1 g-size/data show grid-layer]
 							g-angle: field 20x20 "10"
 						;ok: button "OK" [
 						;	switch action [
@@ -482,23 +670,11 @@ ctx: context [
 						return below
 						group-box "pen" [
 							origin 2x10 space 2x2
-							pen-width: field 20x20 "1" [
+							pen-width: field 22x22 "1" [
 								switch/default action [
 									insert [] ; TBD
 									line-width [
-										either selection-start/2 = 'push [
-											either found-format: find/last selection-start/3 'line-width [
-												change next found-format face/data
-											][
-												insert selection-start/3 reduce ['line-width face/data]
-											]
-										][
-											change/part next selection-start 
-												append/only copy [push] 
-													append reduce ['line-width face/data] 
-														copy/part next selection-start selection-end 
-												selection-end
-										]
+										format-local 'line-width face/data
 										unless find/part at selection-start 4 'line-width selection-end [
 											either last-selected? [
 												append selection-start reduce ['line-width format]
@@ -506,8 +682,9 @@ ctx: context [
 												insert back selection-end reduce ['line-width format]
 											]
 										]
-										face/data: format show face env/action: 'draw recalc-info
-										show canvas
+										face/data: format show face 
+										;env/action: 'draw recalc-info
+										;show canvas
 									]
 								][
 									append canvas/draw reduce ['line-width face/data] 
@@ -517,43 +694,105 @@ ctx: context [
 									show figs
 								]
 							]
-							pen-color: base 20x20 black draw [pen gray box 0x0 19x19][
+							pen-color: base 22x22 black draw [pen gray box 0x0 21x21][
+								if block? color [env/color: color/1]
+								select-color 
 								switch/default action [
 									insert [] ; TBD
 									pen [
-										select-color format-local 'pen color
+										format-local 'pen color
 										env/color: format 
-										show face 
-										;env/action: 'draw recalc-info
-										;redraw ;show canvas 
 									]
+									pen-linear	or
+									pen-radial	or
+									pen-diamond [face/color: format]
 								][
-									select-color 
-									face/color: get color
-									show face  
+									if not word? color [env/color: 'black]
+									append canvas/draw reduce ['pen get color]
+									append figs/data form reduce ['pen color]
+									figs/selected: length? figs/data
+									select-figure 
+									show figs
+								]
+								face/color: either word? color [get color][color]
+								show face  
+							] 
+							pen-color2: base 22x22 black draw [pen gray box 0x0 21x21][
+								request-color 
+								switch/default action [
+									insert [] ; TBD
+									pen [
+										format-local 'pen color
+										env/color: format 
+									]
+									pen-linear	or
+									pen-radial	or
+									pen-diamond [face/color: format]
+								][
 									append canvas/draw reduce ['pen color]
 									append figs/data form reduce ['pen color]
 									figs/selected: length? figs/data
 									select-figure 
 									show figs
 								]
+								face/color: color
+								show face  
 							] 
+							;return
+							;(gradient-pens)
 							return
 							(line-joins) 
 							return
 							(line-caps)
 						]
 						group-box "fill" [
-							fill-color: base 20x20 0.0.0.254 draw [pen gray box 0x0 19x19][
-								select-color
-								face/color: get color 
+							origin 2x10 space 2x2
+							fill-color: base 22x22 0.0.0.254 draw [pen gray box 0x0 21x21][
+								if block? color [env/color: color/1]
+								select-color 
+								switch/default action [
+									insert []
+									fill [
+										format-local 'fill-pen color
+										env/color: format 
+									]
+									fill-linear 	or
+									fill-radial 	or
+									fill-diamond 	[];face/color: format]
+								][
+									if not word? color [env/color: 'black]
+									append canvas/draw reduce ['fill-pen color]
+									append figs/data form reduce ['fill-pen color] 
+									figs/selected: length? figs/data
+									select-figure 
+									show figs
+									face/color: color;either word? color [get color][color]
+								]
 								show face
-								append canvas/draw reduce ['fill-pen color]
-								append figs/data form reduce ['fill-pen color] 
-								figs/selected: length? figs/data
-								select-figure 
-								show figs
 							]
+							fill-color2: base 22x22 snow draw [pen gray box 0x0 21x21][
+								request-color
+								switch/default action [
+									insert []
+									fill [
+										format-local 'fill-pen color
+										face/color: env/color: format 
+									]
+									fill-linear 	or
+									fill-radial 	or
+									fill-diamond 	[face/color: format]
+								][
+									append canvas/draw reduce ['fill-pen color]
+									append figs/data form reduce ['fill-pen color] 
+									figs/selected: length? figs/data
+									select-figure 
+									show figs
+									face/color: color 
+								]
+								show face
+							]
+							;return
+							;(gradient-fills)
 						]
 						button "clear" [
 							clear canvas/draw ; this seems somehow to cause error in first drawing after `clear`. Problem appeared after introducing group handling.
@@ -595,42 +834,38 @@ ctx: context [
 								sector: none
 								;fig-start: none
 								on-wheel: func [face event][;probe action
-									;switch action [
-										;draw [
-											unless face/draw/1 = 'matrix [insert face/draw [matrix [1 0 0 1 0 0]]] ;_Matrix: 
-											probe _Matrix: face/draw;/2
-											select-figure
-											fc: canvas 
-											ev: fc/offset
-											; find face offset on screen
-											until [fc: fc/parent ev: ev - fc/offset fc/type = 'window]
-											; cursor offset on face
-											ev: event/offset + ev
-											; current center of coordinates (COC)
-											dr: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;
-											; cursor offset from COC (i.e. relative to COC)
-											df: dr - ev
-											; increased offset from COC
-											df+: as-pair to-integer round df/x / 1.1 to-integer round df/y / 1.1
-											; decreased offset from COC
-											df-: as-pair to-integer round df/x * 1.1 to-integer round df/y * 1.1
-											; add cursor offset to new offset
-											dr+: df+ + ev
-											dr-: df- + ev
-											_Matrix/2: reduce [;_Matrix: reduce [;
-												either 0 > event/picked [_Matrix/2/1 / 1.1][_Matrix/2/1 * 1.1];[_Matrix/1 / 1.1][_Matrix/1 * 1.1];[_Matrix/2/1 / 1.1][_Matrix/2/1 * 1.1];
-												0 0
-												either 0 > event/picked [_Matrix/2/4 / 1.1][_Matrix/2/4 * 1.1];[_Matrix/4 / 1.1][_Matrix/4 * 1.1];[_Matrix/2/4 / 1.1][_Matrix/2/4 * 1.1];
-												either 0 > event/picked [dr+/x][dr-/x]
-												either 0 > event/picked [dr+/y][dr-/y]
-											]
-											probe current-zoom: rejoin ["z: " _Matrix/2/1 ":" _Matrix/2/4];_Matrix/1 ":" _Matrix/4];_Matrix/2/1 ":" _Matrix/2/4];
-											recalc-info
-											probe reduce [pos1 _Matrix/2];_Matrix] ;_Matrix/2];
-											show face ; probe
-											;redraw
-										;]
-									;]
+									unless face/draw/1 = 'matrix [insert face/draw [matrix [1 0 0 1 0 0]]] ;_Matrix: 
+									probe _Matrix: face/draw;/2
+									select-figure
+									fc: canvas 
+									ev: fc/offset
+									; find face offset on screen
+									until [fc: fc/parent ev: ev - fc/offset fc/type = 'window]
+									; cursor offset on face
+									ev: event/offset + ev
+									; current center of coordinates (COC)
+									dr: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;
+									; cursor offset from COC (i.e. relative to COC)
+									df: dr - ev
+									; increased offset from COC
+									df+: as-pair to-integer round df/x / 1.1 to-integer round df/y / 1.1
+									; decreased offset from COC
+									df-: as-pair to-integer round df/x * 1.1 to-integer round df/y * 1.1
+									; add cursor offset to new offset
+									dr+: df+ + ev
+									dr-: df- + ev
+									_Matrix/2: reduce [;_Matrix: reduce [;
+										either 0 > event/picked [_Matrix/2/1 / 1.1][_Matrix/2/1 * 1.1];[_Matrix/1 / 1.1][_Matrix/1 * 1.1];[_Matrix/2/1 / 1.1][_Matrix/2/1 * 1.1];
+										0 0
+										either 0 > event/picked [_Matrix/2/4 / 1.1][_Matrix/2/4 * 1.1];[_Matrix/4 / 1.1][_Matrix/4 * 1.1];[_Matrix/2/4 / 1.1][_Matrix/2/4 * 1.1];
+										either 0 > event/picked [dr+/x][dr-/x]
+										either 0 > event/picked [dr+/y][dr-/y]
+									]
+									probe current-zoom: rejoin ["z: " _Matrix/2/1 ":" _Matrix/2/4];_Matrix/1 ":" _Matrix/4];_Matrix/2/1 ":" _Matrix/2/4];
+									recalc-info
+									probe reduce [pos1 _Matrix/2];_Matrix] ;_Matrix/2];
+									show face ; probe
+									;redraw
 								]
 								on-time: func [face event /local r-center angle scale-x scale-y translate][
 									;if all [action = 'animate step = 2 selection-start/2 = 'transform] [
@@ -640,7 +875,7 @@ ctx: context [
 									do bind bind probe load animations self env
 									show canvas
 								]
-								on-down: func [face event /local code][;probe reduce [figure step pos1]; draw
+								on-down: func [face event /local code pen type][;probe reduce [figure step pos1]; draw
 									pos1: event/offset
 									if face/draw/1 = 'matrix [
 										mxpos: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;_Matrix/2/5 _Matrix/2/6;
@@ -718,7 +953,7 @@ ctx: context [
 																figs/selected: length? figs/data 
 															]
 															show figs
-															
+															figure-dic/:ff: 'image
 															selected-figure/text: ff 
 															show selected-figure
 															
@@ -744,38 +979,33 @@ ctx: context [
 												]
 											]
 										]
-										translate [
-											if step = 2 [insert-manipulation action]
-											env/step: 2
-										]
-										scale [
-											if step = 2 [insert-manipulation action]
-											env/step: 2
-										]
-										skew [
-											if step = 2 [insert-manipulation action]
-											env/step: 2
-										]
-										rotate [
-											switch step [
-												1 [	selection-start/4: pos1]
-												2 [
-													insert-manipulation action
-													selection-start/4: pos1
+										move [
+											either find format-or-manipulation-params selection-start/1 [
+												move?: false
+											][
+												if probe figure-proper: find-figure-proper [
+													moveable: select figure-move-points figure-proper/1
+													move?: true
 												]
 											]
-											env/step: 2
 										]
-										t-rotate or t-scale [
-											if step = 1 [selection-start/3: pos1]
-											env/step: 2
-										]
+										;t-rotate or t-scale [
+										;	if step = 1 [selection-start/3/2: pos1]
+										;	env/step: 2
+										;]
 										t-translate [
-											switch step [
-												1 [selection-start/3: pos1]
-												2 [pre-diff: pos1 - event/offset + selection-start/7] ;?? last pos1?
+											if step = 2 [
+												pre-diff: pos1 - event/offset + selection-start/3/6 ;?? last pos1?
 											]
-											env/step: 2
+										]
+										pen-linear or pen-radial or pen-diamond or fill-linear or fill-radial or fill-diamond [
+											set [pen type] split form action #"-"
+											env/current-pen: pick [fill-pen pen] pen = "fill"
+											env/current-type: to-word type
+											;probe reduce [current-pen current-type]
+											if find [pen-radial pen-diamond fill-radial fill-diamond] action [
+												if step = 3 [poke current-gradient skip-colors + 1 pos1 redraw]
+											]
 										]
 										d3-x-rotate [
 											switch step [
@@ -817,6 +1047,10 @@ ctx: context [
 												figures/:figure: 1
 											]
 											ff: rejoin [figure figures/:figure]
+											
+											; Synchronize db
+											figure-dic/:ff: draw-form
+											
 											either last-action = 'insert [
 												insert at figs/data figs/selected ff
 												;figs/selected: figs/selected
@@ -872,7 +1106,7 @@ ctx: context [
 											select-figure
 											if find [arc sector] figure [
 												insert-manipulation 'rotate
-												selection-start/4: pos1
+												selection-start/3/3: pos1
 												direction: 'cw
 												sector: 'positive
 											]
@@ -919,9 +1153,9 @@ ctx: context [
 																switch step [
 																	1 [
 																		pre-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1] ; 
-																		selection-start/3: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1]
+																		selection-start/3/2: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1]
 																		last-cur-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1]
-																		selection-start/5/3: as-pair i: sqrt add power diff/x 2 power diff/y 2 i
+																		selection-start/3/6: as-pair i: sqrt add power diff/x 2 power diff/y 2 i
 																	]
 																	2 [	
 																		diff: event/offset - last-pos
@@ -934,7 +1168,7 @@ ctx: context [
 																			all [pre-angle - 180 - last-cur-angle < 0 pre-angle - 180 - cur-angle >= 0]	[direction: 'ccw sector: 'negative]
 																		]
 																		last-cur-angle: cur-angle
-																		poke selection-start/5 5 case [
+																		poke selection-start/3 8 case [
 																			all [direction = 'cw  sector = 'negative][540 + diff2]
 																			all [direction = 'ccw sector = 'positive][-180 + diff2]
 																			'else [180 + diff2]
@@ -977,74 +1211,80 @@ ctx: context [
 														]
 														select-figure
 														;redraw
-														show face
+														;show face
 													]
-													move [; ???? Major reformulation needed
-														unless find [pen fill-pen line-width] selection-start/1 [
-															switch selection-start/2 [
-																circle or ellipse [
-																	selection-start/3: selection-start/3 + diff
-																	pos1: event/offset
-																]
-																box or line or polygon	[;probe reduce [selection-start selection-end]
-																	pnum: either block? selection-end [
-																		subtract subtract index? selection-end index? selection-start 2
-																	][
-																		subtract length? selection-start 2
-																	]
-																	repeat i pnum [
-																		j: i + 2
-																		poke selection-start j selection-start/:j + diff 
-																	]
-																	pos1: event/offset
+													move [
+														if move? [
+															clear move-points
+															parse next figure-proper reduce ['collect 'into 'move-points select figure-points figure-proper/1]
+															if block? move-points/1 [move-points: move-points/1]
+															either moveable/1 = 'all [
+																forall move-points [poke figure-proper 1 + index? move-points move-points/1 + diff]
+															][
+																either figure-proper/1 = 'arc [
+																	forall move-points [poke figure-proper -1 move-points/1 + diff poke figure-proper pick moveable index? move-points move-points/1 + diff]
+																][
+																	forall move-points [poke figure-proper pick moveable index? move-points move-points/1 + diff]
 																]
 															]
-															show face ;canvas
+															pos1: pos2
 														]
 													]
 													translate [
-														if step = 2 [
-															selection-start/3: diff
-															show face
+														switch step [
+															1 [insert-manipulation action env/step: 2]
+															2 [selection-start/3/2: diff]
 														]
 													]
 													scale [
-														if step = 2 [
-															selection-start/3: add 1 diff/x / 100.0 
-															selection-start/4: add 1 diff/y / 100.0
-															show face
+														switch step [
+															1 [insert-manipulation action env/step: 2]
+															2 [
+																selection-start/3/2: add 1 diff/x / 100.0 
+																selection-start/3/3: add 1 diff/y / 100.0
+															]
 														]
 													]
 													skew [
-														if step = 2 [
-															selection-start/3: diff/x 
-															selection-start/4: diff/y
-															show face
+														switch step [
+															1 [insert-manipulation action env/step: 2]
+															2 [
+																selection-start/3/2: diff/x 
+																selection-start/3/3: diff/y
+															]
 														]
 													]
 													rotate [
-														if step = 2 [
-															selection-start/3: round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][.1]
-															show face 
+														switch step [
+															1 [insert-manipulation action selection-start/3/3: pos1 env/step: 2]
+															2 [
+																selection-start/3/2: round/to 180 / pi * arctangent2  diff/y diff/x 
+																	either drawing-on-grid? event/shift? [g-angle/data][.1]
+															]
 														]
 													]
 													t-rotate [
-														if step = 2 [
-															selection-start/4: round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][.1]
-															show face 
+														switch step [
+															1 [new-transformation selection-start/3/2: pos1 env/step: 2]
+															2 [
+																selection-start/3/3: round/to 180 / pi * arctangent2  diff/y diff/x 
+																	either drawing-on-grid? event/shift? [g-angle/data][.1]
+															]
 														]
 													]
 													t-scale [
-														if step = 2 [
-															selection-start/5: add 1 diff/x / 100.0
-															selection-start/6: add 1 diff/y / 100.0
-															show face
+														switch step [
+															1 [new-transformation selection-start/3/2: pos1 env/step: 2]
+															2 [
+																selection-start/3/4: add 1 diff/x / 100.0
+																selection-start/3/5: add 1 diff/y / 100.0
+															]
 														]
 													]
 													t-translate [
-														if step = 2 [
-															selection-start/7: diff + pre-diff
-															show face
+														switch step [
+															1 [new-transformation selection-start/3/2: pos1 env/step: 2]
+															2 [selection-start/3/6: diff + pre-diff]
 														]
 													]
 													;animate [
@@ -1052,6 +1292,29 @@ ctx: context [
 													;		canvas/rate: either 0 < diff/x [canvas/rate + diff/x][0:0:1 + divide absolute diff/x 10]
 													;	]
 													;]
+													pen-linear or 
+													pen-radial or
+													pen-diamond or
+													fill-linear or
+													fill-radial or
+													fill-diamond [
+														switch step [
+															1 [ ;probe reduce ["set-gradient" current-pen current-type pos1]
+																set-gradient current-pen current-type pos1 env/step: 2
+																;probe reduce ["current-gradient" selection-start/3 current-pen]
+																env/current-gradient: find/last selection-start/3 current-pen
+															]
+															2 [ 
+																poke current-gradient skip-colors switch current-type [
+																	linear [pos2] 
+																	radial [hyp] 
+																	diamond [pos2]]
+																;env/action: 'draw recalc-info
+																;redraw
+															]
+															3 [poke current-gradient skip-colors + 1 pos2]
+														]
+													]
 												]
 											]
 										]
@@ -1070,6 +1333,8 @@ ctx: context [
 												image [env/step: 0 start?: true show face] ; In case image was set by a click, i.e. without on-over
 											]
 										]
+										pen-radial or pen-diamond or fill-radial or fill-diamond [if step = 2 [env/step: 3]]
+										
 									]
 									;select-figure 
 									last-pos: pos1
@@ -1084,7 +1349,11 @@ ctx: context [
 						;canvas: image 300x300 all-over
 						layer1: layer
 						do [env/canvas: layer1 selection-start: head canvas/draw selection-end: tail canvas/draw]
-						at 0x0 edit-points-layer: box 300x300 draw []
+						at 0x0 grid-layer: box hidden with [
+							;size: canvas/size 
+							draw: append append/only append [pen off fill-pen pattern] env/g-size/data 
+								[fill-pen cyan circle 0x0 .5] append [box 0x0] canvas/size]
+						at 0x0 edit-points-layer: box draw []
 					]
 					;return
 					figs-panel: panel 100x300 [
@@ -1102,20 +1371,20 @@ ctx: context [
 										"Linear"	pen-linear
 										"Radial"	pen-radial
 										"Diamond"	pen-diamond
-										"Pattern" 	pen-pattern
-										"Bitmap"	pen-bitmap
-										"Off"		pen-off
+									;	"Pattern" 	pen-pattern
+									;	"Bitmap"	pen-bitmap
+									;	"Off"		pen-off
 									]
 									"Fill" [
 										"Color" 	fill
 										"Linear"	fill-linear
 										"Radial"	fill-radial
 										"Diamond"	fill-diamond
-										"Pattern" 	fill-pattern
-										"Bitmap"	fill-bitmap
-										"Off"		fill-off
+									;	"Pattern" 	fill-pattern
+									;	"Bitmap"	fill-bitmap
+									;	"Off"		fill-off
 									]
-									"Anti-alias"	anti-alias
+									;"Anti-alias"	anti-alias
 								]
 								"Move-z" [
 									"Back" 			back 
@@ -1127,14 +1396,14 @@ ctx: context [
 									"Swap"			swap
 								]
 								"Move" 				move ; Check
-								;"Points" 			points ; TBD Edit individual points
+								"Points" 			points ; TBD Edit individual points
 								"Manipulate" [
 									"Translate"		translate
 									"Scale"			scale
 									"Skew" 			skew 
 									"Rotate" 		rotate
-									"Undo last"		undo-manipulation ; TBD Delete latest manipulation
-									"Undo all"		undo-manipulations ; TBD Delete all manipulations
+								;	"Undo last"		undo-manipulation ; TBD Delete latest manipulation
+								;	"Undo all"		undo-manipulations ; TBD Delete all manipulations
 								]
 								"Transform" [
 									"Translate"		t-translate
@@ -1147,29 +1416,29 @@ ctx: context [
 										"All"		undo-transforms
 									]
 								];"---"
-								"Show transformations" show-transform	; TBD Show in separate window (like group elements), from where they can be edited
-								"Hide transformations" hide-transform	; TBD
-								"Animate" [
-									"Translate" 	a-translate
-									"Scale"			a-scale
-									"Skew"			a-skew
-									"Rotate"		a-rotate
-								]
-								"Stop"			stop-animation
+								;"Show transformations" show-transform	; TBD Show in separate window (like group elements), from where they can be edited
+								;"Hide transformations" hide-transform	; TBD
+								;"Animate" [
+								;	"Translate" 	a-translate
+								;	"Scale"			a-scale
+								;	"Skew"			a-skew
+								;	"Rotate"		a-rotate
+								;]
+								;"Stop"			stop-animation
 								"Grouping" [
 									"Group"			group
 									"Show elements"	show-group
 									"Hide elements"	hide-group
-									"Ungroup"		ungroup		; TBD Remove group transformations and replace group with elementary contents
+								;	"Ungroup"		ungroup		; TBD Remove group transformations and replace group with elementary contents
 								]
-								"Insert"		insert ;?? New one just before current one; TBD
-								"Clone"			clone ; TBD Either group or element
+								;"Insert"		insert ;?? New one just before current one; TBD
+								;"Clone"			clone ; TBD Either group or element
 								"Rename"		rename
 								"Delete" 		delete
-								"3D" [
-									"Rotate" ["x" d3-x-rotate "y" d3-y-rotate "z" d3-z-rotate] ; TBD
-									"Translate" ["x" d3-x-translate "y" d3-y-translate "z" d3-z-translate] ; TBD
-								]
+								;"3D" [
+								;	"Rotate" ["x" d3-x-rotate "y" d3-y-rotate "z" d3-z-rotate] ; TBD
+								;	"Translate" ["x" d3-x-translate "y" d3-y-translate "z" d3-z-translate] ; TBD
+								;]
 							]
 							actors: object [
 								pos: 0x0
@@ -1180,36 +1449,40 @@ ctx: context [
 								;	pos: event/offset
 								;]
 								on-wheel: func [face event][
-									move-selection probe pick [backward forward] 0 < event/picked
+									move-selection pick [backward forward] 0 < event/picked
 								]
 								on-menu: func [face event /local sel elements point][
 									env/action: 'draw
 									switch event/picked [
 										line-width 		[env/format: pen-width/data env/action: 'line-width]
-										line-join 		[env/action: 'line-join]
-										line-cap 		[env/action: 'line-cap]
-										pen 			[env/format: color env/action: 'pen]
-										pen-linear 		[]
-										pen-radial 		[]
-										pen-diamond 	[]
+										line-join 		or
+										line-cap 		[env/action: event/picked]
+										
+										pen 			or
+										pen-linear 		or
+										pen-radial 		or
+										pen-diamond 	or
+										fill			or
+										fill-linear 	or
+										fill-radial 	or
+										fill-diamond 	[env/format: color env/action: event/picked env/step: 1]
+										
 										pen-pattern 	[]
 										pen-bitmap 		[]
 										pen-off 		[]
-										fill 			[]
-										fill-linear 	[]
-										fill-radial 	[]
-										fill-diamond 	[]
+										
 										fill-pattern 	[]
 										fill-bitmap 	[]
 										fill-off 		[]
+										
 										anti-alias 		[]
 										
-										front 		[move-selection 'front]
-										forward 	[move-selection 'forward]
-										backward 	[move-selection 'backward]
-										back 		[move-selection 'back]
-										before 		[env/action: 'before] 
-										swap 		[env/action: 'swap]
+										back 			[move-selection 'back]
+										backward 		[move-selection 'backward]
+										forward 		[move-selection 'forward]
+										front 			[move-selection 'front]
+										before 			[env/action: 'before] 
+										swap 			[env/action: 'swap]
 										
 										move [env/action: 'move]
 										points [env/count: 0
@@ -1220,21 +1493,33 @@ ctx: context [
 											recalc-info
 											show drawing-panel
 										]
-										translate or scale or skew or rotate [new-manipulation event/picked]
-										undo-manipulation []
-										undo-manipulations []
-										t-rotate or t-scale or t-translate [new-transformation event/picked]
-										undo-t-rotate 		[selection-start/3: 0x0 selection-start/4: 0 show canvas]
-										undo-t-scale 		[selection-start/5: selection-start/6: 1 show canvas]
-										undo-t-translate 	[selection-start/7: 0x0 show canvas]
-										undo-transforms 	[change skip selection-start 2 [0x0 0 1 1 0x0] show canvas]
-
+										translate or scale or skew or rotate [env/action: event/picked env/step: 1];[new-manipulation event/picked]
+										undo-manipulation 	[]
+										undo-manipulations 	[]
+										t-rotate or t-scale or t-translate [env/action: event/picked env/step: 1];[new-transformation event/picked]
+										undo-t-rotate 		or ;[if all [selection-start/2 = 'push found: find selection-start/3 'transform][found/2: 0x0 found/3: 0] show canvas]
+										undo-t-scale 		or ;[if all [selection-start/2 = 'push found: find selection-start/3 'transform][found/4: found/5: 1] show canvas]
+										undo-t-translate 	or ;[if all [selection-start/2 = 'push found: find selection-start/3 'transform][found/6: 0x0] show canvas]
+										undo-transforms 	[
+											if all [
+												selection-start/2 = 'push 
+												probe found: find selection-start/3 'transform
+											][
+												switch event/picked [
+													undo-t-rotate 		[found/2: 0x0 found/3: 0]
+													undo-t-scale 		[found/4: found/5: 1]
+													undo-t-translate 	[found/6: 0x0]
+													undo-transforms 	[change next found [0x0 0 1 1 0x0]]
+												]
+											]
+											redraw ;show canvas
+										]
 										;animate [env/action: 'animate env/step: 1 canvas/rate: 10]
 										stop-animation [canvas/rate: none env/step: 1]
 
 										a-translate	[
-											unless selection-start/2 <> 'translate [
-												new-manipulation 'translate
+											unless selection-start/3/1 <> 'translate [
+												insert-manipulation 'translate ;new-manipulation 'translate ???
 											]
 										]
 
@@ -1283,6 +1568,8 @@ ctx: context [
 											either find face/data new-name [
 												show-warning "Name should be unique!"
 											][
+												figure-dic/:new-name: figure-dic/(pick face/data face/selected)
+												put figure-dic pick face/data face/selected none
 												change at face/data face/selected new-name
 												change selection-start to-set-word new-name
 												selected-figure/text: new-name
@@ -1296,7 +1583,8 @@ ctx: context [
 										]
 										clone []
 										delete [
-											probe sel: select-figure 
+											put figure-dic pick face/data face/selected none
+											sel: select-figure 
 											remove at face/data face/selected
 											remove/part selection-start selection-end
 											face/selected: sel
@@ -1487,7 +1775,8 @@ to change angle, `tick` is preset reserved word counting time ticks,
 			drawing-panel/size: ;as-pair 
 				drawing-panel/parent/size - drawing-panel/offset - 120x50
 				;drawing-panel/parent/size/y - drawing-panel/offset/y - 10
-			canvas/size: drawing-panel/size
+			canvas/size: grid-layer/size: drawing-panel/size
+			poke grid-layer/draw length? grid-layer/draw canvas/size
 			figs-panel/offset/x: figs-panel/parent/size/x - 110
 			figs-panel/size/y: figs-panel/parent/size/y - figs-panel/offset/y - 15
 			figs1/size/y: figs-panel/size/y
