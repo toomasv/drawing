@@ -1396,7 +1396,7 @@ ctx: context [
 									"Swap"			swap
 								]
 								"Move" 				move ; Check
-								"Points" 			points ; TBD Edit individual points
+								;"Points" 			points ; TBD Edit individual points
 								"Manipulate" [
 									"Translate"		translate
 									"Scale"			scale
