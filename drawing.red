@@ -619,7 +619,7 @@ ctx: context [
 							selected-figure: text 80x20 
 						grid: check "Grid:" 45x20 [grid-layer/visible?: face/data poke find grid-layer/draw pair! 1 g-size/data show grid-layer]
 							g-size: field 40x20 "10x10" [poke find grid-layer/draw pair! 1 g-size/data show grid-layer]
-							g-angle: field 20x20 "10"
+							g-angle: field 20x20 "10" text "°" 
 						;ok: button "OK" [
 						;	switch action [
 						;		points [
@@ -657,11 +657,12 @@ ctx: context [
 						f with [extra: 'sector 		image: (draw 23x23 [fill-pen snow arc 5x11 12x6 -25 50 closed])]
 						return
 						f with [extra: 'd3face 		image: (draw 23x23 [fill-pen snow polygon 5x7 11x11 11x17 5x13])]
-						;f with [extra: 'd3surface 	image: (draw 23x23 [
-						;	fill-pen snow 
-						;		polygon 5x7 11x11 11x17 5x13 
-						;		polygon 5x7 11x3 17x7 11x11 
-						;		polygon 11x11 17x7 17x13 11x17])]
+						f with [extra: 'd3surface 	image: (draw 23x23 [
+							fill-pen snow 
+								polygon 5x7 11x11 11x17 5x13 
+								polygon 5x7 11x3 17x7 11x11 
+								polygon 11x11 17x7 17x13 11x17
+						])]
 						;f with [extra: 'd3volume 	image: (draw 23x23 [
 						;	fill-pen snow 	
 						;		polygon 5x7 11x11 11x17 5x13
