@@ -1,6 +1,6 @@
 Red [
 	Author: "Toomas Vooglaid"
-	Last-version: 2018-03-1
+	Last-version: 2018-03-2
 	File: %drawing.red
 	Needs: 'View
 ]
@@ -656,6 +656,20 @@ ctx: context [
 						f with [extra: 'circle 		image: (draw 23x23 [fill-pen snow circle 11x11 6])]
 						f with [extra: 'sector 		image: (draw 23x23 [fill-pen snow arc 5x11 12x6 -25 50 closed])]
 						return
+						f with [extra: 'd3face 		image: (draw 23x23 [fill-pen snow polygon 5x7 11x11 11x17 5x13])]
+						;f with [extra: 'd3surface 	image: (draw 23x23 [
+						;	fill-pen snow 
+						;		polygon 5x7 11x11 11x17 5x13 
+						;		polygon 5x7 11x3 17x7 11x11 
+						;		polygon 11x11 17x7 17x13 11x17])]
+						;f with [extra: 'd3volume 	image: (draw 23x23 [
+						;	fill-pen snow 	
+						;		polygon 5x7 11x11 11x17 5x13
+						;		polygon 5x7 11x3 17x7 11x11 
+						;		polygon 11x11 17x7 17x13 11x17
+						;		line 11x11 11x3 line 11x11 5x13 line 11x11 17x13
+						;])]
+						return
 						f with [extra: 'program 
 							image: (draw 23x23 [line 5x5 10x5 line 5x7 14x7 line 5x9 10x9 line 5x11 17x11 line 7x13 10x13 line 7x15 12x15 line 5x17 8x17])
 						]
@@ -889,13 +903,25 @@ ctx: context [
 									switch action [
 										draw [
 											case [
-												find/match form figure "poly" [
+												find [polyline polygon] figure [
 													unless start? [
 														env/step: 2
 														either last-action = 'insert [
 															next-figure: insert next-figure pos1
 														][
 															append selection-start pos1
+														]
+													]
+												]
+												find [d3face d3surface d3volume] figure [
+													unless start? [
+														switch step [
+															1 [env/step: 2]
+															2 [
+																[
+																	
+																]
+															]
 														]
 													]
 												]
@@ -1022,7 +1048,7 @@ ctx: context [
 										;] 
 									] 
 								]
-								on-over: func [face event /local mx pos2 draw-form ff i j pnum diff diff2][
+								on-over: func [face event /local mx pos2 draw-form ff i j pnum diff diff2 len][
 									either drawing-on-grid? event/shift? [
 										over-xy/text: rejoin ["x: " round/to event/offset/x g-size/data/x " y: " round/to event/offset/y g-size/data/y]
 									][
@@ -1038,6 +1064,9 @@ ctx: context [
 												polyline 	['line]
 												sector		['arc]
 												freehand	['line]
+												d3face		or
+												d3surface 	or
+												d3volume	['polygon]
 											][figure]
 											
 											; Synchronize figs list --->
@@ -1088,19 +1117,25 @@ ctx: context [
 														][pos1]
 												]
 											]
-											if find [polygon arc sector freehand] figure [env/step: 1]
+											if find [polygon arc sector freehand d3face d3surface d3volume] figure [env/step: 1]
 											either last-action = 'insert [
 												switch figure [
 													;next-figure: find-figure figs/selected + 1
-													polygon [next-figure: insert next-figure pos1]
-													arc		[next-figure: insert next-figure [180 1]]; fig-start: skip tail selection-start -5]
-													sector	[next-figure: insert next-figure [180 1 closed]]; fig-start: skip tail selection-start -6]
+													polygon 	[next-figure: insert next-figure pos1]
+													arc			[next-figure: insert next-figure [180 1]]; fig-start: skip tail selection-start -5]
+													sector		[next-figure: insert next-figure [180 1 closed]]; fig-start: skip tail selection-start -6]
+													d3face		or
+													d3surface 	or
+													d3volume 	[next-figure: insert next-figure reduce [pos1 pos1]]
 												]
 											][
 												switch figure [
-													polygon [append selection-start pos1]
-													arc		[append selection-start [180 1]]; fig-start: skip tail selection-start -5]
-													sector	[append selection-start [180 1 closed]]; fig-start: skip tail selection-start -6]
+													polygon 	[append selection-start pos1]
+													arc			[append selection-start [180 1]]
+													sector		[append selection-start [180 1 closed]]
+													d3face		or
+													d3surface 	or
+													d3volume	[append selection-start reduce [pos1 pos1]]
 												]
 											]
 											select-figure
@@ -1142,11 +1177,37 @@ ctx: context [
 														case [
 															all [figure = 'polygon step = 1][; triangle?
 																either last-action = 'insert [
-																	poke selection-start subtract offset? selection-start next-figure 1 pos2
-																	poke selection-start offset? selection-start next-figure pos2
+																	poke selection-start subtract len: offset? selection-start next-figure 1 pos2
+																	poke selection-start len pos2
 																][
-																	poke selection-start subtract length? selection-start 1 pos2
-																	poke selection-start length? selection-start pos2
+																	poke selection-start subtract len: length? selection-start 1 pos2
+																	poke selection-start len pos2
+																]
+															]
+															find [d3face d3surface d3volume] figure [
+																switch step [
+																	1 [
+																		either last-action = 'insert [
+																			poke selection-start subtract 
+																				len: offset? selection-start next-figure 2 pos2
+																			poke selection-start subtract len 1 pos2
+																		][
+																			poke selection-start subtract 
+																				len: length? selection-start 2 pos2
+																			poke selection-start subtract len 1 pos2
+																		]
+																	]
+																	2 [
+																		either last-action = 'insert [
+																			poke selection-start subtract len: offset? selection-start next-figure 1 pos2
+																			df: subtract pos2 first skip next-figure -3
+																			poke selection-start len add first skip tail next-figure -4 df
+																		][
+																			poke selection-start subtract len: length? selection-start 1 pos2
+																			df: subtract pos2 first skip tail selection-start -3 
+																			poke selection-start len add first skip tail selection-start -4 df
+																		]
+																	]
 																]
 															]
 															find [arc sector] figure [
@@ -1322,7 +1383,7 @@ ctx: context [
 									]
 								]
 								on-up: func [face][
-									if all [last-action = 'insert not find [polygon polyline] figure] [last-action: none]
+									if all [last-action = 'insert not find [polygon polyline d3face d3surface d3volume] figure] [last-action: none]
 									switch action [
 										t-rotate [env/step: 1]
 										draw [
@@ -1331,6 +1392,7 @@ ctx: context [
 													if step = 2 [env/step: 3]
 												]
 												image [env/step: 0 start?: true show face] ; In case image was set by a click, i.e. without on-over
+												d3face [if step = 2 [env/step: 0 env/start?: true env/action: 'draw]]
 											]
 										]
 										pen-radial or pen-diamond or fill-radial or fill-diamond [if step = 2 [env/step: 3]]
