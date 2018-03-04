@@ -45,6 +45,11 @@ ctx: context [
 		text:		[keep pair!]
 		image: 		[[image! | word!] keep pair! opt [keep pair!]]		
 	]
+	flatten: function [block [any-block!] /with out /local b][
+		out: any [out clear []] 
+		foreach b block [either any-block? b [flatten/with b out][append out b]] 
+		out
+	] 
 	color-word: [
 		  'Red    | 'white   | 'transparent | 'black  | 'gray    | 'aqua    | 'beige  | 'blue 
 		| 'brick  | 'brown   | 'coal        | 'coffee | 'crimson | 'cyan    | 'forest | 'gold 
@@ -517,7 +522,7 @@ ctx: context [
 	; Edit-layer
 	;found-transformations: found-formatting: 
 	;found-figures: make block! 10
-	edit-points-layer: none
+	edit-points-layer: selection-layer: none
 	copied-fig: copy []
 	figure-points2: [
 		some [s: 
@@ -550,11 +555,29 @@ ctx: context [
 			;]
 		;]
 		parse copy/part selection-start selection-end [collect into copied-fig figure-points2]
-		insert edit-points-layer/draw head insert copied-fig [pen blue]
+		;probe reduce ["hi" flatten copied-fig]
+		insert edit-points-layer/draw flatten head insert copied-fig [pen blue]
 		;append drawing-panel/pane layout/only compose/deep [
 		;	at 0x0 box (drawing-panel/size) draw [(drw)] 
 		;]
 		show drawing-panel
+	]
+	start-selected: func [][
+		clear copied-fig
+		parse copy/part selection-start selection-end [collect into copied-fig figure-points2]
+		insert selection-layer/draw flatten head insert copied-fig [pen blue]
+		show drawing-panel		
+	]
+	show-selected: func [/new /local found][
+		either new [probe "hi"
+			clear selection-layer/draw
+			append selection-layer/draw append copy [pen sky] next selection-start
+		][
+			found: find-figure-proper/in selection-layer/draw
+			change next found skip selection-start 2
+		]
+		probe reduce ["found:" selection-layer/draw]
+		show selection-layer		
 	]
 	
 	a-rate: none
@@ -598,8 +621,9 @@ ctx: context [
 	move?: none
 	move-points: copy []
 	moveable: none
-	find-figure-proper: does [
-		find-deep selection-start select figure-dic pick figs/data figs/selected
+	find-figure-proper: func [/in block][
+		block: any [block selection-start]
+		find-deep block select figure-dic pick figs/data figs/selected
 	]
 	
 	win: layout compose/deep [
@@ -626,8 +650,8 @@ ctx: context [
 						grid: check "Grid:" 45x20 [grid-layer/visible?: face/data poke find grid-layer/draw pair! 1 g-size/data show grid-layer]
 							g-size: field 40x20 "10x10" [poke find grid-layer/draw pair! 1 g-size/data show grid-layer]
 							g-angle: field 20x20 "10" text "°" 
-						;select-fig: check "Select"
-						;points: check "Points"
+						select-fig: check "Select" hidden [selection-layer/visible?: face/data]
+						points: check "Points" hidden
 						
 						;ok: button "OK" [
 						;	switch action [
@@ -739,7 +763,7 @@ ctx: context [
 									pen-diamond [face/color: format]
 								][
 									if not word? color [env/color: 'black]
-									append canvas/draw reduce ['pen get color]
+									append canvas/draw reduce ['pen color]
 									append figs/data form reduce ['pen color]
 									figs/selected: length? figs/data
 									select-figure 
@@ -827,6 +851,7 @@ ctx: context [
 						]
 						button "clear" [
 							clear canvas/draw 
+							clear selection-layer/draw
 							show canvas
 
 							foreach-face figs-panel [
@@ -1122,7 +1147,6 @@ ctx: context [
 												d3surface 	or
 												d3volume	['polygon]
 											][figure]
-											
 											; Synchronize figs list --->
 											either figures/:figure [
 												figures/:figure: figures/:figure + 1
@@ -1130,10 +1154,8 @@ ctx: context [
 												figures/:figure: 1
 											]
 											ff: rejoin [figure figures/:figure]
-											
 											; Synchronize db
 											figure-dic/:ff: draw-form
-											
 											either last-action = 'insert [
 												insert at figs/data figs/selected ff
 												;figs/selected: figs/selected
@@ -1145,7 +1167,6 @@ ctx: context [
 											;<--- figs
 											selected-figure/text: ff 
 											show selected-figure
-											
 											;put-to: pick [:insert][:append] last-action = 'insert
 											either last-action = 'insert [
 												next-figure: insert next-figure reduce [
@@ -1199,6 +1220,7 @@ ctx: context [
 												direction: 'cw
 												sector: 'positive
 											]
+											if select-fig/data [show-selected/new probe reduce ["new:" selection-layer/draw]]
 											start?: false
 										][	
 											pos2: event/offset
@@ -1425,11 +1447,14 @@ ctx: context [
 														]
 													]
 												]
+												if select-fig/data [
+													;probe reduce ["show-selected:" selection-start]
+													;env/count: 0
+													show-selected
+													;show selection-layer
+												]
 											]
 										]
-										;if select-fig/data [
-										;	probe reduce ["select:" selection-start]
-										;]
 										last-mode: 'down
 										redraw
 									]
@@ -1538,15 +1563,6 @@ ctx: context [
 										pen-radial or pen-diamond or fill-radial or fill-diamond [if step = 2 [env/step: 3]]
 										
 									]
-									;if points/data [
-									;	env/count: 0
-									;	;probe copy/part selection-start figure-length
-									;	bind-figure-points
-									;	;env/action: 'points
-									;	;current-action/text: "points"
-									;	recalc-info
-									;	show drawing-panel ;points-panel ;???
-									;]
 									;select-figure 
 									last-pos: pos1
 									;probe reduce ["start" selection-start "end" selection-end]
@@ -1561,9 +1577,10 @@ ctx: context [
 						layer1: layer
 						do [env/canvas: layer1 selection-start: head canvas/draw selection-end: tail canvas/draw]
 						at 0x0 grid-layer: box hidden with [
-							;size: canvas/size 
 							draw: append append/only append [pen off fill-pen pattern] env/g-size/data 
-								[fill-pen cyan circle 0x0 .5] append [box 0x0] canvas/size]
+								[fill-pen cyan circle 0x0 .5] append [box 0x0] canvas/size
+						]
+						at 0x0 selection-layer: box hidden draw []
 						at 0x0 edit-points-layer: box draw []
 					]
 					;return
@@ -1977,7 +1994,7 @@ to change angle, `tick` is preset reserved word counting time ticks,
 			drawing-panel/size: ;as-pair 
 				drawing-panel/parent/size - drawing-panel/offset - 120x50
 				;drawing-panel/parent/size/y - drawing-panel/offset/y - 10
-			canvas/size: grid-layer/size: drawing-panel/size
+			canvas/size: grid-layer/size: selection-layer/size: drawing-panel/size
 			poke grid-layer/draw length? grid-layer/draw canvas/size
 			figs-panel/offset/x: figs-panel/parent/size/x - 110
 			figs-panel/size/y: figs-panel/parent/size/y - figs-panel/offset/y - 15
