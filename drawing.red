@@ -5,6 +5,7 @@ Red [
 	Needs: 'View
 ]
 system/view/auto-sync?: off
+system/state/trace: 20
 ctx: context [
 	env: self
 	step: 0
@@ -148,7 +149,7 @@ ctx: context [
 						]
 					]
 				][
-					insert selection-start/3 append append reduce [pen type] env/color probe reduce switch type [
+					insert selection-start/3 append append reduce [pen type] env/color reduce switch type [
 						linear [[pos1 pos1 'pad]] 
 						radial [[pos1 0 pos1 'pad]]
 						diamond [[pos1 pos1 pos1 'pad]]
@@ -158,7 +159,7 @@ ctx: context [
 			][
 				change/part next selection-start 
 					append/only copy [push] 
-						probe append append append reduce [pen type] env/color reduce switch type [
+						append append append reduce [pen type] env/color reduce switch type [
 						linear [[pos1 pos1 'pad]] 
 						radial [[pos1 0 pos1 'pad]]
 						diamond [[pos1 pos1 pos1 'pad]]
@@ -168,7 +169,7 @@ ctx: context [
 				skip-colors: skip-colors + 4
 			]
 			env/step: 2
-		][probe "Use shift while gathering at least two colors!"]
+		][probe "Use shift while gathering at least two colors! Select last color w/o shift."]
 	]
 	result: none
 	write-program: has [result][
@@ -318,7 +319,8 @@ ctx: context [
 						copy/part next selection-start selection-end 
 				selection-end
 		]
-		env/action: 'draw recalc-info
+		env/action: 'draw 
+		recalc-info
 		redraw ;show canvas  
 	]
 	foreach join [miter bevel round] [
@@ -372,7 +374,7 @@ ctx: context [
 
 	]
 	move-selection: func [position /from pos1 /to pos2 /local tmp][
-		probe reduce ["pre" selection-start]
+		;probe reduce ["pre" selection-start]
 		switch position [; There seems to be some bug still!
 			front [
 				unless last-selected? [
@@ -443,7 +445,7 @@ ctx: context [
 			]
 		]
 		select-figure 
-		probe reduce ["post" selection-start]
+		;probe reduce ["post" selection-start]
 		show [figs canvas] adjust-pens
 		;probe canvas/draw
 	]
@@ -483,14 +485,14 @@ ctx: context [
 	show-group-rule: [
 		[['transform | 'translate | 'scale | 'skew | 'rotate] to block! | ahead block!] (in-group?: true) into show-group-rule to end
 	|	if (in-group?) collect some [
-			s: (probe s) set-word! keep (to-string s/1) | ['line-width | 'fill-pen | 'pen] keep (form copy/part s 2) | skip
+			s: set-word! keep (to-string s/1) | ['line-width | 'fill-pen | 'pen] keep (form copy/part s 2) | skip
 		] (in-group?: false)
 	]
 	show-figs-rule: [
 	;	[['transform | 'translate | 'scale | 'skew | 'rotate] to block! | ahead block!] (in-group?: true) into show-group-rule to end
 	;|	if (in-group?) 
 		collect some [
-			s: (probe s) set-word! keep (to-string s/1) | ['line-width | 'fill-pen | 'pen] keep (form copy/part s 2) | skip
+			s: set-word! keep (to-string s/1) | ['line-width | 'fill-pen | 'pen] keep (form copy/part s 2) | skip
 		] 
 	;	(in-group?: false)
 	;]
@@ -565,7 +567,7 @@ ctx: context [
 	info-panel: options-panel: drawing-panel: figs-panel: anim-panel: none
 
 	over-xy: over-params: current-drawing: current-action: current-step: none
-	current-zoom: "z: 1"
+	current-zoom: none
 	recalc-info: has [i p][
 		repeat i length? p: info-panel/pane [
 			j: i - 1
@@ -577,6 +579,7 @@ ctx: context [
 	
 	ortho?: cx: cy: none
 	grid: g-size: g-angle: none
+	select-fig: points: none
 	
 	imag: none
 	_Matrix: none
@@ -606,7 +609,8 @@ ctx: context [
 			"Drawing" [
 				drawing-panel-tab: panel [
 					across 
-					info-panel: panel 480x20 [origin 0x0 space 4x0
+					info-panel: panel 480x20 [
+						origin 0x0 space 4x0
 						over-xy: text 10x20
 						over-params: text 20x20
 						current-zoom: text 20x20
@@ -622,6 +626,9 @@ ctx: context [
 						grid: check "Grid:" 45x20 [grid-layer/visible?: face/data poke find grid-layer/draw pair! 1 g-size/data show grid-layer]
 							g-size: field 40x20 "10x10" [poke find grid-layer/draw pair! 1 g-size/data show grid-layer]
 							g-angle: field 20x20 "10" text "°" 
+						;select-fig: check "Select"
+						;points: check "Points"
+						
 						;ok: button "OK" [
 						;	switch action [
 						;		points [
@@ -644,6 +651,7 @@ ctx: context [
 							current-action/text: form action
 							current-drawing/text: form face/extra
 							current-step/text: rejoin ["Step: " step]
+							current-zoom/text: "z: 1"
 							recalc-info
 						]
 						f with [extra: 'line 		image: (draw 23x23 [line 5x5 17x17])]
@@ -689,7 +697,7 @@ ctx: context [
 						])] on-up [imag: load-file env/figure: 'image]
 						return 
 						
-						do [current-drawing/text: rejoin ["draw line"] recalc-info]
+						do [current-drawing/text: rejoin ["draw line"] ];recalc-info] Causes error in start-up!
 						return below
 						group-box "pen" [
 							origin 2x10 space 2x2
@@ -818,7 +826,7 @@ ctx: context [
 							;(gradient-fills)
 						]
 						button "clear" [
-							clear canvas/draw ; this seems somehow to cause error in first drawing after `clear`. Problem appeared after introducing group handling.
+							clear canvas/draw 
 							show canvas
 
 							foreach-face figs-panel [
@@ -858,7 +866,7 @@ ctx: context [
 								;fig-start: none
 								on-wheel: func [face event][;probe action
 									unless face/draw/1 = 'matrix [insert face/draw [matrix [1 0 0 1 0 0]]] ;_Matrix: 
-									probe _Matrix: face/draw;/2
+									_Matrix: face/draw;/2
 									select-figure
 									fc: canvas 
 									ev: fc/offset
@@ -884,9 +892,9 @@ ctx: context [
 										either 0 > event/picked [dr+/x][dr-/x]
 										either 0 > event/picked [dr+/y][dr-/y]
 									]
-									probe current-zoom: rejoin ["z: " _Matrix/2/1 ":" _Matrix/2/4];_Matrix/1 ":" _Matrix/4];_Matrix/2/1 ":" _Matrix/2/4];
+									current-zoom/text: rejoin ["z: " round/to _Matrix/2/1 .01];_Matrix/1 ":" _Matrix/4];_Matrix/2/1 ":" _Matrix/2/4];
 									recalc-info
-									probe reduce [pos1 _Matrix/2];_Matrix] ;_Matrix/2];
+									;probe reduce [pos1 _Matrix/2];_Matrix] ;_Matrix/2];
 									show face ; probe
 									;redraw
 								]
@@ -895,7 +903,7 @@ ctx: context [
 									;	selection-start/4: anim-step: anim-step + 1
 									;	show face
 									;]
-									do bind bind probe load animations self env
+									do bind bind load animations self env
 									show canvas
 								]
 								on-alt-down: func [face event][
@@ -1055,7 +1063,7 @@ ctx: context [
 											either find format-or-manipulation-params selection-start/1 [
 												move?: false
 											][
-												if probe figure-proper: find-figure-proper [
+												if figure-proper: find-figure-proper [
 													moveable: select figure-move-points figure-proper/1
 													move?: true
 												]
@@ -1227,7 +1235,7 @@ ctx: context [
 																poke selection-start len 	 pos2
 															]
 															find [d3face d3surface d3volume] figure [
-																probe reduce [figure step pos2 skip tail selection-start -4]
+																;probe reduce [figure step pos2 skip tail selection-start -4]
 																switch step [
 																	1 [ ; Move positions 2 and 3
 																		poke selection-start len - 2 pos2 	
@@ -1419,6 +1427,9 @@ ctx: context [
 												]
 											]
 										]
+										;if select-fig/data [
+										;	probe reduce ["select:" selection-start]
+										;]
 										last-mode: 'down
 										redraw
 									]
@@ -1527,6 +1538,15 @@ ctx: context [
 										pen-radial or pen-diamond or fill-radial or fill-diamond [if step = 2 [env/step: 3]]
 										
 									]
+									;if points/data [
+									;	env/count: 0
+									;	;probe copy/part selection-start figure-length
+									;	bind-figure-points
+									;	;env/action: 'points
+									;	;current-action/text: "points"
+									;	recalc-info
+									;	show drawing-panel ;points-panel ;???
+									;]
 									;select-figure 
 									last-pos: pos1
 									;probe reduce ["start" selection-start "end" selection-end]
@@ -1587,7 +1607,6 @@ ctx: context [
 									"Swap"			swap
 								]
 								"Move" 				move ; Check
-								;"Points" 			points ; TBD Edit individual points
 								"Manipulate" [
 									"Translate"		translate
 									"Scale"			scale
@@ -1676,14 +1695,6 @@ ctx: context [
 										swap 			[env/action: 'swap]
 										
 										move [env/action: 'move]
-										points [env/count: 0
-											;probe copy/part selection-start figure-length
-											bind-figure-points
-											env/action: 'points
-											current-action/text: "points"
-											recalc-info
-											show drawing-panel
-										]
 										translate or scale or skew or rotate [env/action: event/picked env/step: 1];[new-manipulation event/picked]
 										undo-manipulation 	[]
 										undo-manipulations 	[]
@@ -1694,7 +1705,7 @@ ctx: context [
 										undo-transforms 	[
 											if all [
 												selection-start/2 = 'push 
-												probe found: find selection-start/3 'transform
+												found: find selection-start/3 'transform
 											][
 												switch event/picked [
 													undo-t-rotate 		[found/2: 0x0 found/3: 0]
@@ -1739,10 +1750,10 @@ ctx: context [
 										ungroup [
 											;either block? selection-start/2 [;probe selection-start/2
 												replace face/data pick face/data face/selected parse next selection-start show-group-rule
-												probe "hi"
-												probe selection-end: offset? selection-start selection-end
-												probe change/part probe selection-start probe unwrap-group probe selection-end ; first get to-word selection-start/1
-												probe "ho"
+												;probe "hi"
+												selection-end: offset? selection-start selection-end
+												change/part selection-start unwrap-group selection-end ; first get to-word selection-start/1
+												;probe "ho"
 												select-figure
 												show [face canvas]
 											;][
@@ -1907,7 +1918,7 @@ ctx: context [
 					animations/text: select loaded 'animations
 					win/text: to-local-file last split-path win/extra
 					redraw
-					figs/data: parse probe canvas/draw show-figs-rule
+					figs/data: parse canvas/draw show-figs-rule
 					figs/selected: 1
 					select-figure
 					show win;[canvas figs animations]
