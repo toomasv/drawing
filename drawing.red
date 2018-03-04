@@ -1,6 +1,6 @@
 Red [
 	Author: "Toomas Vooglaid"
-	Last-version: 2018-03-2
+	Last-version: 2018-03-4
 	File: %drawing.red
 	Needs: 'View
 ]
@@ -8,6 +8,8 @@ system/view/auto-sync?: off
 ctx: context [
 	env: self
 	step: 0
+	last-step: 0
+	last-mode: none
 	start?: true
 	figure: none;'line
 	figures: #()
@@ -656,8 +658,14 @@ ctx: context [
 						f with [extra: 'circle 		image: (draw 23x23 [fill-pen snow circle 11x11 6])]
 						f with [extra: 'sector 		image: (draw 23x23 [fill-pen snow arc 5x11 12x6 -25 50 closed])]
 						return
-						f with [extra: 'd3face 		image: (draw 23x23 [fill-pen snow polygon 5x7 11x11 11x17 5x13])]
+						f with [extra: 'd3face 		image: (draw 23x23 [fill-pen snow polygon 5x5 17x9 17x17 5x13])];fill-pen snow polygon 5x7 11x11 11x17 5x13])]
 						f with [extra: 'd3surface 	image: (draw 23x23 [
+							fill-pen snow 
+								polygon 5x5 9x9 9x17 5x13 
+								polygon 9x9 13x5 13x13 9x17
+								polygon 13x5 17x9 17x17 13x13
+								;polygon 8x11 14x7 20x11 14x15 
+						])]f with [extra: 'd3volume 	image: (draw 23x23 [
 							fill-pen snow 
 								polygon 5x7 11x11 11x17 5x13 
 								polygon 5x7 11x3 17x7 11x11 
@@ -890,12 +898,30 @@ ctx: context [
 									do bind bind probe load animations self env
 									show canvas
 								]
-								on-down: func [face event /local code pen type][;probe reduce [figure step pos1]; draw
+								on-alt-down: func [face event][
+									switch action [
+										draw [
+											switch figure [
+												d3surface [
+													switch step [
+														3 or 4 [
+															append selection-start 
+																append/dup copy [polygon] 
+																	copy/part skip tail selection-start -3 2 2
+															reverse skip tail selection-start -2
+														]
+													]
+												]
+											]
+										]
+									]
+								]
+								on-down: func [face event /local code pen type strt][;probe reduce [figure step pos1]; draw
 									pos1: event/offset
 									if face/draw/1 = 'matrix [
-										mxpos: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;_Matrix/2/5 _Matrix/2/6;
-										pos1: as-pair to-integer round pos1/x / _Matrix/2/1 to-integer round pos1/y / _Matrix/2/4;_Matrix/1 to-integer round pos1/y / _Matrix/4;_Matrix/2/1 to-integer round pos1/y / _Matrix/2/4;
-										pos1: subtract pos1 mxpos / _Matrix/2/1;_Matrix/1;_Matrix/2/1;
+										mxpos: as-pair _Matrix/2/5 _Matrix/2/6
+										pos1: as-pair to-integer round pos1/x / _Matrix/2/1 to-integer round pos1/y / _Matrix/2/4
+										pos1: subtract pos1 mxpos / _Matrix/2/1
 									]
 									if drawing-on-grid? event/shift? [
 										pos1/x: round/to pos1/x g-size/data/x pos1/y: round/to pos1/y g-size/data/y
@@ -914,14 +940,33 @@ ctx: context [
 														]
 													]
 												]
-												find [d3face d3surface d3volume] figure [
+												figure = 'd3face []
+												figure = 'd3surface [
 													unless start? [
 														switch step [
-															1 [env/step: 2]
-															2 [
-																[
-																	
-																]
+															3 or 4 [ 
+																; Make new polygon from duplicated positions 3 and 4, then swap values of first two positions
+																append selection-start 
+																	append/dup copy [polygon] 
+																		copy/part skip tail selection-start -2 2 2
+																reverse skip tail selection-start -4 2
+															]
+														]
+													]
+												]
+												figure = 'd3volume [
+													unless start? [
+														switch step [
+															3 [ 
+																; Make new polygon from duplicated positions 3 and 4, then swap values of first two positions
+																append selection-start 
+																	append/dup copy [polygon] 
+																		copy/part skip tail selection-start -2 2 2
+																reverse skip tail selection-start -4 2
+																append selection-start 
+																	append/dup copy [polygon] 
+																		copy/part skip tail selection-start -8 2 2
+																reverse skip tail selection-start -2
 															]
 														]
 													]
@@ -1057,7 +1102,7 @@ ctx: context [
 									]
 									recalc-info
 									;show info-panel;over-xy
-									if all [event/down? not find [program] figure] [
+									if all [event/down? not find [program] figure][
 										either start? [
 											unless figure [figure: 'line]
 											draw-form: switch/default figure [
@@ -1174,39 +1219,41 @@ ctx: context [
 												over-params/text: rejoin ["d: " diff " r: " round/to hyp .1 " α: " ang]
 												recalc-info
 												switch action [
-													draw [;probe event/flags
+													draw [;probe reduce ["over" event/flags]
+														len: either last-action = 'insert [offset? selection-start next-figure][length? selection-start]
 														case [
 															all [figure = 'polygon step = 1][; triangle?
-																either last-action = 'insert [
-																	poke selection-start subtract len: offset? selection-start next-figure 1 pos2
-																	poke selection-start len pos2
-																][
-																	poke selection-start subtract len: length? selection-start 1 pos2
-																	poke selection-start len pos2
-																]
+																poke selection-start len - 1 pos2
+																poke selection-start len 	 pos2
 															]
 															find [d3face d3surface d3volume] figure [
+																probe reduce [figure step pos2 skip tail selection-start -4]
 																switch step [
-																	1 [
-																		either last-action = 'insert [
-																			poke selection-start subtract 
-																				len: offset? selection-start next-figure 2 pos2
-																			poke selection-start subtract len 1 pos2
-																		][
-																			poke selection-start subtract 
-																				len: length? selection-start 2 pos2
-																			poke selection-start subtract len 1 pos2
-																		]
+																	1 [ ; Move positions 2 and 3
+																		poke selection-start len - 2 pos2 	
+																		poke selection-start len - 1 pos2
+																		
 																	]
-																	2 [
-																		either last-action = 'insert [
-																			poke selection-start subtract len: offset? selection-start next-figure 1 pos2
-																			df: subtract pos2 first skip next-figure -3
-																			poke selection-start len add first skip tail next-figure -4 df
-																		][
-																			poke selection-start subtract len: length? selection-start 1 pos2
-																			df: subtract pos2 first skip tail selection-start -3 
-																			poke selection-start len add first skip tail selection-start -4 df
+																	2 [ ; Move positions ...
+																		df: pos2 - first skip tail selection-start -3 
+																		poke selection-start len - 1 pos2 ; last-but-one (3)
+																		poke selection-start len df + first skip tail selection-start -4 ; last (4)
+																	]
+																	3 or 4 [ ; Move positions positions ... 
+																		switch figure [
+																			d3surface [
+																				df: pos2 - first skip tail selection-start -3 
+																				poke selection-start len - 1 pos2
+																				poke selection-start len  df + first skip tail selection-start -4
+																			]
+																			d3volume [
+																				df: pos2 - first skip tail selection-start -8 
+																				poke selection-start len - 6 pos2
+																				poke selection-start len - 5 df + first skip tail selection-start -9
+																				df: pos2 - first skip tail selection-start -8 
+																				poke selection-start len - 1 pos2 ; 
+																				poke selection-start len df + first skip tail selection-start -4
+																			]
 																		]
 																	]
 																]
@@ -1244,7 +1291,7 @@ ctx: context [
 															figure = 'freehand [
 																if pos2 <> pos1 [
 																	switch step [
-																		1 [poke selection-start length? selection-start pos2 pos1: pos2 env/step: 2]
+																		1 [poke selection-start len pos2 pos1: pos2 env/step: 2]
 																		2 [append selection-start pos2 pos1: pos2]
 																	]
 																]
@@ -1252,23 +1299,15 @@ ctx: context [
 															figure = 'image [
 																switch step [
 																	1 [append selection-start pos2 env/step: 2]
-																	2 [poke selection-start length? selection-start pos2]
+																	2 [poke selection-start len pos2]
 																]
 															]
 															'else [
-																either last-action = 'insert [
-																	poke selection-start offset? selection-start next-figure switch/default figure [
-																		square [dim: max diff/x diff/y pos1 + as-pair dim dim]
-																		ellipse [diff]
-																		circle [sqrt add power diff/x 2 power diff/y 2]
-																	][pos2]
-																][
-																	poke selection-start length? selection-start switch/default figure [
-																		square [dim: max diff/x diff/y pos1 + as-pair dim dim]
-																		ellipse [diff]
-																		circle [sqrt add power diff/x 2 power diff/y 2]
-																	][pos2] 
-																]
+																poke selection-start len switch/default figure [
+																	square [dim: max diff/x diff/y pos1 + as-pair dim dim]
+																	ellipse [diff]
+																	circle [sqrt add power diff/x 2 power diff/y 2]
+																][pos2] 
 															]
 														]
 														select-figure
@@ -1380,7 +1419,79 @@ ctx: context [
 												]
 											]
 										]
+										last-mode: 'down
 										redraw
+									]
+									if event/alt-down? [
+										either drawing-on-grid? event/shift? [
+											over-xy/text: rejoin ["x: " round/to event/offset/x g-size/data/x " y: " round/to event/offset/y g-size/data/y]
+										][
+											over-xy/text: rejoin ["x: " event/offset/x " y: " event/offset/y]
+										]
+										recalc-info
+										unless start? [
+											pos2: event/offset
+											if face/draw/1 = 'matrix [
+												mxpos: as-pair _Matrix/2/5 _Matrix/2/6;_Matrix/5 _Matrix/6;_Matrix/2/5 _Matrix/2/6;
+												pos2: as-pair to-integer round pos2/x / _Matrix/2/1 to-integer round pos2/y / _Matrix/2/4;_Matrix/1 to-integer round pos2/y / _Matrix/4;_Matrix/2/1 to-integer round pos2/y / _Matrix/2/4;
+												pos2: subtract pos2 mxpos / _Matrix/2/1;_Matrix/1 ; 
+											]
+											diff: pos2 - pos1
+											if drawing-on-grid? event/shift? [
+												pos2/x: round/to pos2/x g-size/data/x pos2/y: round/to pos2/y g-size/data/y
+											]
+											if pos2 <> pos-tmp [;probe reduce ["pos2:" pos2 pos-tmp] pos-tmp: pos2]
+												either event/ctrl? [
+													either ortho? [
+														either cx [pos2/x: cx][pos2/y: cy] ;probe reduce [cx cy]
+													][
+														ortho?: on either lesser? absolute diff/x absolute diff/y [cx: pos1/x cy: none][cy: pos1/y cx: none]
+													]
+												][
+													ortho?: off cx: cy: none
+												]
+												diff: pos2 - pos1
+												ang: round/to 180 / pi * arctangent2 diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][.1]
+												hyp: sqrt add diff/x ** 2 diff/y ** 2
+												over-params/text: rejoin ["d: " diff " r: " round/to hyp .1 " α: " ang]
+												recalc-info
+												switch action [
+													draw [;probe reduce ["over" event/flags]
+														len: either last-action = 'insert [offset? selection-start next-figure][length? selection-start]
+														case [
+															find [d3surface d3volume] figure [
+																switch step [
+																	3 or 4 [ ; Move positions positions 3 and 4 of new polygon 
+																		either figure = 'd3surface [
+																			df: pos2 - first skip tail selection-start -3 
+																			poke selection-start len - 1 pos2 ; 
+																			poke selection-start len df + first skip tail selection-start -4
+																		][]
+																	]
+																]
+															]
+														]
+														select-figure
+													]
+												]
+											]
+										]
+										last-mode: 'alt-down
+										redraw
+									]
+								]
+								on-alt-up: func [face][
+									switch action [
+										draw [
+											switch figure [
+												d3surface [
+													switch step [
+														3 [env/last-step: step env/step: step + 1]
+														4 [env/last-step: 4]
+													]
+												]
+											]
+										]
 									]
 								]
 								on-up: func [face][
@@ -1393,7 +1504,24 @@ ctx: context [
 													if step = 2 [env/step: 3]
 												]
 												image [env/step: 0 start?: true show face] ; In case image was set by a click, i.e. without on-over
-												d3face [if step = 2 [env/step: 0 env/start?: true env/action: 'draw]]
+												d3face [
+													switch step [
+														1 [env/step: 2]
+														2 [env/step: 0 env/start?: true env/action: 'draw]
+													]
+												]
+												d3surface [
+													switch step [
+														1 or 2 or 3 [env/last-step: step env/step: step + 1]
+														4 [env/last-step: 4]
+													]
+												]
+												d3volume [
+													switch step [
+														1 or 2 [env/last-step: step env/step: step + 1]
+														3 [env/step: 0 env/start?: true env/action: 'draw]
+													]
+												]
 											]
 										]
 										pen-radial or pen-diamond or fill-radial or fill-diamond [if step = 2 [env/step: 3]]
