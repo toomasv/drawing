@@ -1177,7 +1177,7 @@ comment {
 									]
 									recalc-info
 									if all [event/down? not find [program] figure][
-										either start? [
+										either all [start? action = 'draw]  [
 											unless figure [figure: 'line]
 											draw-form: switch/default figure [
 												square 	 	['box] 
