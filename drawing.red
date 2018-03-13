@@ -1,6 +1,6 @@
 Red [
 	Author: "Toomas Vooglaid"
-	Last-version: 2018-03-11
+	Last-version: 2018-03-13
 	File: %drawing.red
 	Needs: 'View
 ]
@@ -44,8 +44,8 @@ ctx: context [
 		line: 		[copy _points  [pair! some pair!]]
 		box: 		[set  _top-left pair! set _bottom-right pair!]  ; add corner
 		circle: 	[set  _center   pair! set _radius [integer! | float!]]
-		ellipse:	[set  _top-left pair! set _dimensions pair!]
 		polygon:	[copy _points  [pair! pair! some pair!]]
+		ellipse:	[set  _top-left pair! set _dimensions pair!]
 		arc:		[set  _center   pair! set _radius pair! set _begin integer! set _sweep integer! opt 'closed]
 		text:		[set  _position pair! string!]
 		image: 		[[image! | word!] set _top-left pair! opt [set _bottom-right pair!]]
@@ -124,6 +124,101 @@ ctx: context [
 	color: black
 	select-color: does [clear color-bag view/flags pallette [modal popup]]
 
+	; --> new color-picker
+	make-color: func [i][
+		sector: i - 1 / 64 + 1
+		switch sector [
+			1 [as-rgba 255 0 i - 1 * 4 0]
+			2 [as-rgba 255 - (i - 1 % 64 * 4) 0 255 0]
+			3 [as-rgba 0 i - 1 % 64 * 4 255 0]
+			4 [as-rgba 0 255 255 - (i - 1 % 64 * 4) 0]
+			5 [as-rgba i - 1 % 64 * 4 255 0 0]
+			6 [as-rgba 255 255 - (i - 1 % 64 * 4) 0 0]
+		]
+	]
+	drw: copy [rotate -30 150x150 pen off ] 
+	collect/into [
+		repeat i 6 * 64 [
+			keep reduce [
+				'rotate i - 1 * 0.9375 150x150 
+				compose [
+					fill-pen (make-color i) 
+					arc 150x150 128x128 0 1 closed
+				]
+			]
+		]
+	] drw 
+	append drw [
+		fill-pen radial 0.0.0.0 0.0.0.255 150x150 128 
+		circle 150x150 128
+	]
+	alpha-val: 0
+	grey-val: 0
+	last-color: copy "pick a color"
+	sz: 300x300
+	palette2: make image! sz
+	draw palette2 drw
+	dn?: false
+	request-color: has [colors value alpha grey disc disc2 found clr dn?][
+		colors: copy []
+		view/flags compose/deep [
+			value: text data [last-color]
+			text 30x24 "alpha:"
+			alpha: slider with [data: env/alpha-val]
+				react later [
+					found: disc2/draw
+					while [found: find next found block!][
+						found/1/2/4: to integer! alpha/data * 255
+					]
+					show disc2
+				]
+			return 
+			grey: slider 24x300 with [data: env/grey-val]
+				on-up [
+					;palette2: make image! sz
+					draw palette2 disc2/draw 
+					disc/image: palette2
+				]
+				react later [
+					change/part at tail disc2/draw -7 reduce [
+						as-rgba v: to integer! grey/data * 255 v v 0
+						as-rgba v v v 255
+					] 2
+					show disc2
+				] 
+			disc: image palette2  
+			at 44x44 disc2: box white 300x300 all-over 
+				on-over [
+					clr: pick palette2 event/offset
+					attempt [clr/4: to integer! alpha/data * 255]
+					value/text: form clr
+				] 
+				on-down [dn?: true] 
+				on-up [
+					if dn? [
+						clr: pick palette2 event/offset
+						clr/4: to integer! alpha/data * 255
+						either event/shift? [
+							append colors clr
+						][
+							env/color: either empty? colors [
+								clr
+							][  
+								append colors clr
+							]
+							env/alpha-val: alpha/data
+							env/grey-val: grey/data
+							env/last-color: form clr
+							unview
+						]
+					]
+				]
+				draw [(drw)]
+		][modal popup] 
+	]
+	; <-- new color-picker
+	
+comment {
 	sz: 150x150
 	grad-palette: make image! sz
 	draw grad-palette compose [
@@ -153,6 +248,7 @@ ctx: context [
 			]
 		][modal popup]
 	]
+}
 	skip-colors: 0
 	set-gradient: func [pen type pos1][
 		either block? env/color [
@@ -252,7 +348,7 @@ ctx: context [
 		result
 	]
 	show-draw: does [
-		view/options/flags compose [;/flags
+		view/options/flags compose [
 			title "Edit draw" 
 			below
 			result: area 300x200 (mold canvas/draw)
@@ -349,7 +445,7 @@ ctx: context [
 		selected: any [selected figs/selected]
 		figure: load first selection: at figs/data selected
 		any [
-			all [word? figure last-selected?/pos selected length? find-figure selected]
+			all [word? figure last-selected?/pos figs selected length? find-figure selected]
 			all [word? figure offset selected selected + 1]
 			length? figure
 		]
