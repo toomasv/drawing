@@ -7,7 +7,6 @@ Red [
 system/view/auto-sync?: off
 system/state/trace: 20
 clear-reactions
-;#include %/C/Users/Toomas/Documents/GitHub/redCV/libs/redCV.red
 ctx: context [
 	env: self
 	step: 0
