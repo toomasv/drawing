@@ -18,27 +18,6 @@ ctx: context [
 	primary: #()
 	secondary: #() 
 	layers*: 1
-	template: object [
-		line: does [make deep-reactor! [
-			source: copy/part next selection-start selection-end
-			point: find/tail source 'line
-			length: is [probe sqrt add point/2/x - point/1/x ** 2 point/2/y - point/1/y ** 2]
-			angle: is [180 / pi * arctangent2 point/2/y - point/1/y point/2/x - point/1/x]
-			center: is [as-pair point/1/x + point/2/x / 2 point/1/y + point/2/y / 2]
-			;on-deep-change*: func [owner word target action new index part][probe reduce [owner word target action new index part]]
-		]]
-		;polyline: make deep-reactor! [
-		;	source: copy []
-		;	;length: is 
-		;]
-		;box: object [points: make block! 2]
-		
-		
-	]
-	obj: #()
-	make-obj: func [figure][
-		obj/:figure: 
-	]
 	figure-prop: #(
 		line: 		[copy _points  [pair! some pair!]]
 		box: 		[set  _top-left pair! set _bottom-right pair!]  ; add corner
@@ -1459,8 +1438,6 @@ comment {
 												either last-action = 'insert [
 													switch figure [
 														polygon 		[next-figure: insert next-figure pos1] 
-														;spline 			[next-figure: insert next-figure pos1] 
-														;splineC			[next-figure: insert next-figure reduce [pos1 'closed]]
 														arc				[next-figure: insert next-figure [180 1]]
 														sector			[next-figure: insert next-figure [180 1 closed]]
 														paragram	or
@@ -1472,8 +1449,6 @@ comment {
 												][
 													switch figure [
 														polygon 		[append selection-start pos1] 
-														;spline 			[append selection-start pos1]
-														;splineC			[append selection-start reduce [pos1 'closed]]
 														arc				[append selection-start [180 1]]
 														sector			[append selection-start [180 1 closed]]
 														paragram	or
@@ -1484,10 +1459,6 @@ comment {
 													]
 												]
 												select-figure
-												;if attempt [template/:figure] [
-												;	obj/(wf: to-word ff): template/:figure
-													;obj/:wf/source: next find obj/:wf/source selection-start 
-												;]
 												case [
 													find [arc sector] figure [
 														insert-manipulation 'rotate
@@ -1803,10 +1774,6 @@ comment {
 															last-mode: 'down
 														]
 													]
-													;if attempt [template/:figure] [
-													;	obj/(wf: to-word ff): template/:figure
-														;obj/:wf/source: next find obj/:wf/source selection-start 
-													;]
 													if select-fig/data [show-selected]
 												]
 												pos-tmp: pos2
