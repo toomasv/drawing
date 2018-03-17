@@ -1,12 +1,13 @@
 Red [
 	Author: "Toomas Vooglaid"
-	Last-version: 2018-03-13
+	Last-version: 2018-03-17
 	File: %drawing.red
 	Needs: 'View
 ]
 system/view/auto-sync?: off
 system/state/trace: 20
 clear-reactions
+;#include %/C/Users/Toomas/Documents/GitHub/redCV/libs/redCV.red
 ctx: context [
 	env: self
 	step: 0
@@ -57,7 +58,9 @@ ctx: context [
 		polygon:	[all]
 		arc:		[2]
 		text:		[2]
-		image: 		[3 4]		
+		image: 		[3 4]
+		curve:		[all]
+		spline:		[all]
 	)
 	figure-points: [
 		line: 		[keep some pair!]
@@ -67,7 +70,9 @@ ctx: context [
 		polygon:	[keep some pair!]
 		arc:		[keep pair!]
 		text:		[keep pair!]
-		image: 		[[image! | word!] keep pair! opt [keep pair!]]		
+		image: 		[[image! | word!] keep pair! opt [keep pair!]]
+		curve:		[keep some pair!]
+		spline:		[keep some pair!]
 	]
 	flatten: function [block [any-block!] /with out /local b][
 		out: any [out clear []] 
@@ -84,7 +89,6 @@ ctx: context [
 	]
 	system/words/transparent: 255.255.255.254 ; ????
 	colors: exclude sort extract load help-string tuple! 2 [glass]
-;comment {
 ; DideC -->
 	pallette: [
 		title "Select color" origin 1x1 space 1x1
@@ -375,11 +379,8 @@ comment {
 	select-layer: func [/pos selected][
 		selected: any [selected layers/selected]
 		if selected [
-			;canvas/extra/figs: copy figs/data
 			canvas: get to-word pick layers/data layers/selected
-			;change/part figs/data canvas/extra/figs tail figs/data
 			figs/data: canvas/extra/figs
-			figs/selected: length? figs/data
 			select-figure
 			show [drawing-panel figs-panel]
 		]
@@ -388,21 +389,26 @@ comment {
 	selection-end: none
 	selected-figure: none
 	select-figure: func [/pos selected][; returns new `selected` for figs while deleting 
-		selected: any [selected figs/selected]
-		if selected [
-			selected-figure/text: pick figs/data selected
-			show selected-figure
-			selection-start: find-figure selected 
-			either selected = length? figs/data [
-				selection-end: length? selection-start
-				either 1 < selected [selected - 1][none]  ;??? Check it!
-			][
-				selection-end: find next selection-start load pick figs/data selected + 1
-				selected
+		either empty? figs/data [
+			selection-start: tail canvas/draw
+			selection-end: tail canvas/draw
+		][
+			selected: any [selected figs/selected]
+			if selected [
+				selected-figure/text: pick figs/data selected
+				show selected-figure
+				selection-start: find-figure selected 
+				either selected = length? figs/data [
+					selection-end: length? selection-start
+					either 1 < selected [selected - 1][none]  ;??? Check it!
+				][
+					selection-end: find next selection-start load pick figs/data selected + 1
+					selected
+				]
 			]
+			figure: secondary/(selected-figure/text)
+			if select-fig/data [show-selected/sel]
 		]
-		figure: secondary/(selected-figure/text)
-		if select-fig/data [show-selected/sel]
 	]
 	load-figure: func [fig][load pick figs/data fig]; Can be word! or block! (in case it is `pen`, `fill-pen` or `line-width`)
 	find-figure: func [selected /tail /local figure found][
@@ -899,15 +905,20 @@ comment {
 								polygon 11x11 17x7 17x13 11x17
 						])]
 						return
+						f with [extra: 'curve		image: (draw 23x23 [curve 5x11 11x2 17x17])]
+						f with [extra: 'cubicCurve		image: (draw 23x23 [curve 5x11 9x0 13x23 17x11])]
+						f with [extra: 'spline		image: (draw 23x23 [spline 5x7 5x17 7x17 9x11 13x11 15x17 17x17 17x7])];[spline 6x7 8x7 10x15 12x15 14x7 16x7 17x11 11x12 5x11 closed])]
+						return
+						f with [extra: 'freehand 	image: (draw 23x23 [line 5x5 7x5 7x8 10x8 10x6 13x6 13x9 17x9 17x12 14x12 14x17 17x17])]
 						f with [extra: 'program 
 							image: (draw 23x23 [line 5x5 10x5 line 5x7 14x7 line 5x9 10x9 line 5x11 17x11 line 7x13 10x13 line 7x15 12x15 line 5x17 8x17])
 						]
-						f with [extra: 'freehand 	image: (draw 23x23 [line 5x5 7x5 7x8 10x8 10x6 13x6 13x9 17x9 17x12 14x12 14x17 17x17])]
+						f with [extra: 'splineC		image: (draw 23x23 [fill-pen snow spline 11x5 5x11 5x17 7x17 9x11 13x11 15x17 17x17 17x11 closed])];[spline 6x7 8x7 10x15 12x15 14x7 16x7 17x11 11x12 5x11 closed])]
+						return 
 						f with [extra: 'image 		image: (draw 23x23 compose [
 							image (load/as read/binary %frame-with-picture_1f5bc.png 'png) -3x-3 25x25
 							;https://emojipedia-us.s3.amazonaws.com/thumbs/160/emoji-one/44/frame-with-picture_1f5bc.png
 						])] on-up [imag: load-file env/figure: 'image]
-						return 
 						f with [extra: 'ortho-grid image: (draw 23x23 [box 5x5 17x17 line 8x5 8x17 line 11x5 11x17 line 14x5 14x17 line 5x8 17x8 line 5x11 17x11 line 5x14 17x14])]
 						;f with [extra: 'radial-grid image: (draw 23x23 [])]
 						f with [extra: 'layer image: (draw 23x23 [fill-pen snow polygon 5x17 9x10 17x10 13x17 polygon 5x12 9x5 17x5 13x12])][
@@ -1088,13 +1099,14 @@ comment {
 							clear at selection-layer/draw 3
 							selection-layer/draw/2: [1 0 0 1 0 0]
 							show [canvas selection-layer]
+							;probe length? figs/data
 
 							foreach-face/with figs-panel [
 								clear face/data 
 								either face/extra = 'figs1 [
 									face/size/y: face/parent/size/y
 								][face/visible?: false]
-							] [2 < index? face/parent/pane]
+							][2 < index? find face/parent/pane face]
 							show figs-panel
 
 							foreach key keys-of figures* [figures*/:key: none]
@@ -1165,6 +1177,15 @@ comment {
 										show [face canvas grid-layer selection-layer]
 									]
 									on-alt-down: func [face event][
+										pos1: event/offset
+										;if face/draw/1 = 'matrix [
+											mxpos: as-pair _Matrix/2/5 _Matrix/2/6
+											pos1: as-pair to-integer round pos1/x / _Matrix/2/1 to-integer round pos1/y / _Matrix/2/4
+											pos1: subtract pos1 mxpos / _Matrix/2/1
+										;]
+										if drawing-on-grid? event/shift? [
+											pos1/x: round/to pos1/x g-size/data/x pos1/y: round/to pos1/y g-size/data/y
+										]
 										switch action [
 											draw [
 												switch figure [
@@ -1195,13 +1216,34 @@ comment {
 										switch action [
 											draw [
 												switch/default figure [
-													polyline or polygon [
+													polyline or polygon or spline [
 														unless start? [
 															env/step: 2
 															either last-action = 'insert [
 																next-figure: insert next-figure pos1
 															][
 																append selection-start pos1
+															]
+														]
+													]
+													splineC [
+														unless start? [
+															switch step [
+																1 [
+																	either last-action = 'insert [
+																		next-figure: insert next-figure reduce [pos1 'closed]
+																	][
+																		append selection-start reduce [pos1 'closed]
+																	]
+																	env/step: 2
+																]
+																2 [
+																	either last-action = 'insert [
+																		next-figure: next insert back next-figure pos1
+																	][
+																		insert back tail selection-start pos1
+																	]
+																]
 															]
 														]
 													]
@@ -1312,6 +1354,7 @@ comment {
 															]
 														]
 													]
+													curve or cubicCurve [if step = 1 [env/step: 2]]
 												][
 													start?: true
 												]
@@ -1360,8 +1403,8 @@ comment {
 											over-xy/text: rejoin ["x: " event/offset/x " y: " event/offset/y]
 										]
 										recalc-info
-										if all [event/down? not find [program] figure][
-											either all [start? action = 'draw]  [
+										if all [any [event/down? event/alt-down?] not find [program] figure][
+											either all [start? action = 'draw event/down?]  [
 												unless figure [figure: 'line]
 												draw-form: switch/default figure [
 													square 	 	['box] 
@@ -1372,6 +1415,8 @@ comment {
 													parachain 	or
 													paratriple	['polygon]
 													ortho-grid	['box]
+													cubicCurve	['curve]
+													splineC		['spline]
 												][figure]
 												; Synchronize figs list --->
 												either figures*/:figure [
@@ -1411,24 +1456,32 @@ comment {
 															][pos1]
 													]
 												]
-												if find [polygon arc sector freehand paragram parachain paratriple] figure [env/step: 1]
+												if find [polygon spline splineC arc sector freehand paragram parachain paratriple curve cubicCurve] figure [env/step: 1]
 												either last-action = 'insert [
 													switch figure [
-														polygon 	[next-figure: insert next-figure pos1]
-														arc			[next-figure: insert next-figure [180 1]]
-														sector		[next-figure: insert next-figure [180 1 closed]]
-														paragram		or
+														polygon 		[next-figure: insert next-figure pos1] 
+														;spline 			[next-figure: insert next-figure pos1] 
+														;splineC			[next-figure: insert next-figure reduce [pos1 'closed]]
+														arc				[next-figure: insert next-figure [180 1]]
+														sector			[next-figure: insert next-figure [180 1 closed]]
+														paragram	or
 														parachain 	or
-														paratriple 	[next-figure: insert next-figure reduce [pos1 pos1]]
+														paratriple 		[next-figure: insert next-figure reduce [pos1 pos1]]
+														curve			[next-figure: insert next-figure pos1]
+														cubicCurve		[next-figure: insert next-figure reduce [pos1 pos1]]
 													]
 												][
 													switch figure [
-														polygon 	[append selection-start pos1]
-														arc			[append selection-start [180 1]]
-														sector		[append selection-start [180 1 closed]]
-														paragram		or
+														polygon 		[append selection-start pos1] 
+														;spline 			[append selection-start pos1]
+														;splineC			[append selection-start reduce [pos1 'closed]]
+														arc				[append selection-start [180 1]]
+														sector			[append selection-start [180 1 closed]]
+														paragram	or
 														parachain 	or
-														paratriple	[append selection-start reduce [pos1 pos1]]
+														paratriple		[append selection-start reduce [pos1 pos1]]
+														curve			[append selection-start pos1]
+														cubicCurve		[append selection-start reduce [pos1 pos1]]
 													]
 												]
 												select-figure
@@ -1444,9 +1497,9 @@ comment {
 														sector: 'positive
 													]
 													figure = 'ortho-grid [
-														probe selection-start
+														;probe selection-start
 														change/part next selection-start 
-															probe append/only copy [push]
+															append/only copy [push]
 																append either empty? g-step/text [
 																	append/only reduce ['fill-pen 'pattern g-size/data 0x0 g-size/data 'tile] 
 																				reduce ['pen 'silver 'line 0x0 as-pair 0 g-size/data/y 'line 0x0 as-pair g-size/data/x 0]
@@ -1489,224 +1542,266 @@ comment {
 														]
 													][
 														ortho?: off cx: cy: none
-													]
+													] 
 													diff: pos2 - pos1
 													ang: round/to 180 / pi * arctangent2 diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][.1]
 													hyp: sqrt add diff/x ** 2 diff/y ** 2
 													over-params/text: rejoin ["d: " diff " r: " round/to hyp .1 " α: " ang]
 													recalc-info
-													switch action [
-														draw [
+													either action = 'draw [
 															len: either last-action = 'insert [offset? selection-start next-figure][length? selection-start]
-															case [
-																all [figure = 'polygon step = 1][; triangle?
-																	poke selection-start len - 1 pos2
-																	poke selection-start len 	 pos2
-																]
-																find [paragram parachain paratriple] figure [
-																	switch step [
-																		1 [ 
-																			poke selection-start len - 2 pos2 	
-																			poke selection-start len - 1 pos2
-																			
-																		]
-																		2 [ 
-																			df: pos2 - first skip tail selection-start -3 
-																			poke selection-start len - 1 pos2 
-																			poke selection-start len df + first skip tail selection-start -4 
-																		]
-																		3 or 4 [ 
-																			switch figure [
-																				parachain [
-																					df: pos2 - first skip tail selection-start -3 
-																					poke selection-start len - 1 pos2
-																					poke selection-start len  df + first skip tail selection-start -4
+															if event/down? [
+																case [
+																	all [figure = 'polygon step = 1][; triangle?
+																		poke selection-start len - 1 pos2
+																		poke selection-start len 	 pos2
+																	]
+																	find [paragram parachain paratriple] figure [
+																		switch step [
+																			1 [ 
+																				poke selection-start len - 2 pos2 	
+																				poke selection-start len - 1 pos2
+																				
+																			]
+																			2 [ 
+																				df: pos2 - first skip tail selection-start -3 
+																				poke selection-start len - 1 pos2 
+																				poke selection-start len df + first skip tail selection-start -4 
+																			]
+																			3 or 4 [ 
+																				switch figure [
+																					parachain [
+																						df: pos2 - first skip tail selection-start -3 
+																						poke selection-start len - 1 pos2
+																						poke selection-start len  df + first skip tail selection-start -4
+																					]
+																					paratriple [
+																						df: pos2 - first skip tail selection-start -8 
+																						poke selection-start len - 6 pos2
+																						poke selection-start len - 5 df + first skip tail selection-start -9
+																						df: pos2 - first skip tail selection-start -8 
+																						poke selection-start len - 1 pos2 ; 
+																						poke selection-start len df + first skip tail selection-start -4
+																					]
 																				]
-																				paratriple [
-																					df: pos2 - first skip tail selection-start -8 
-																					poke selection-start len - 6 pos2
-																					poke selection-start len - 5 df + first skip tail selection-start -9
-																					df: pos2 - first skip tail selection-start -8 
+																			]
+																		]
+																	]
+																	find [arc sector] figure [
+																		switch step [
+																			1 [
+																				pre-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1] ; 
+																				selection-start/3/2: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1]
+																				last-cur-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1]
+																				selection-start/3/6: as-pair i: sqrt add power diff/x 2 power diff/y 2 i
+																			]
+																			2 [	
+																				diff: event/offset - last-pos
+																				cur-angle: round/to 180 / pi * arctangent2 diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1]
+																				diff2: cur-angle - pre-angle
+																				case [
+																					all [last-cur-angle > 170 	cur-angle < -170]	[sector: pick ['negative 'positive] direction = 'cw]
+																					all [last-cur-angle < -170 	cur-angle > 170]	[sector: pick ['positive 'negative] direction = 'cw]
+																					all [pre-angle - 180 - last-cur-angle >= 0 pre-angle - 180 - cur-angle < 0]	[direction: 'cw  sector: 'positive]
+																					all [pre-angle - 180 - last-cur-angle < 0 pre-angle - 180 - cur-angle >= 0]	[direction: 'ccw sector: 'negative]
+																				]
+																				last-cur-angle: cur-angle
+																				poke selection-start/3 8 case [
+																					all [direction = 'cw  sector = 'negative][540 + diff2]
+																					all [direction = 'ccw sector = 'positive][-180 + diff2]
+																					'else [180 + diff2]
+																				]
+																				;selection-start/4: selection-start/4
+																				redraw
+																			]
+																		]
+																	]
+																	figure = 'program []
+																	figure = 'freehand [
+																		if pos2 <> pos1 [
+																			switch step [
+																				1 [poke selection-start len pos2 pos1: pos2 env/step: 2]
+																				2 [append selection-start pos2 pos1: pos2]
+																			]
+																		]
+																	]
+																	figure = 'image [
+																		switch step [
+																			1 [append selection-start pos2 env/step: 2]
+																			2 [poke selection-start len pos2]
+																		]
+																	]
+																	figure = 'ortho-grid [
+																		;probe selection-start/3
+																		poke selection-start/3 length? selection-start/3 pos2
+																	]
+																	find [curve cubicCurve] figure [
+																		switch step [
+																			1 [
+																				poke selection-start len pos2
+																				;poke selection-start len - 1 pos1 + pos2 / 2
+																			]
+																			2 [ 
+																				poke selection-start len - 1 pos2 
+																			]
+																		]
+																	]
+																	all [figure = 'splineC  step = 2] [
+																		;poke selection-start len - 2 pos2
+																		poke selection-start len - 1 pos2
+																	]
+																	'else [
+																		poke selection-start len switch/default figure [
+																			square [dim: max diff/x diff/y pos1 + as-pair dim dim]
+																			ellipse [diff]
+																			circle [sqrt add power diff/x 2 power diff/y 2]
+																		][pos2]
+																	]
+																]
+															]
+															if event/alt-down? [
+																case [
+																	find [parachain paratriple] figure [
+																		switch step [
+																			3 or 4 [ ; Move positions positions 3 and 4 of new polygon 
+																				either figure = 'parachain [
+																					df: pos2 - first skip tail selection-start -3 
 																					poke selection-start len - 1 pos2 ; 
 																					poke selection-start len df + first skip tail selection-start -4
-																				]
+																				][]
 																			]
 																		]
 																	]
-																]
-																find [arc sector] figure [
-																	switch step [
-																		1 [
-																			pre-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1] ; 
-																			selection-start/3/2: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1]
-																			last-cur-angle: 180 + round/to 180 / pi * arctangent2  diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1]
-																			selection-start/3/6: as-pair i: sqrt add power diff/x 2 power diff/y 2 i
-																		]
-																		2 [	
-																			diff: event/offset - last-pos
-																			cur-angle: round/to 180 / pi * arctangent2 diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][1]
-																			diff2: cur-angle - pre-angle
-																			case [
-																				all [last-cur-angle > 170 	cur-angle < -170]	[sector: pick ['negative 'positive] direction = 'cw]
-																				all [last-cur-angle < -170 	cur-angle > 170]	[sector: pick ['positive 'negative] direction = 'cw]
-																				all [pre-angle - 180 - last-cur-angle >= 0 pre-angle - 180 - cur-angle < 0]	[direction: 'cw  sector: 'positive]
-																				all [pre-angle - 180 - last-cur-angle < 0 pre-angle - 180 - cur-angle >= 0]	[direction: 'ccw sector: 'negative]
-																			]
-																			last-cur-angle: cur-angle
-																			poke selection-start/3 8 case [
-																				all [direction = 'cw  sector = 'negative][540 + diff2]
-																				all [direction = 'ccw sector = 'positive][-180 + diff2]
-																				'else [180 + diff2]
-																			]
-																			;selection-start/4: selection-start/4
-																			redraw
+																	figure = 'cubicCurve [
+																		if step = 2 [
+																			poke selection-start len - 2 pos2
 																		]
 																	]
 																]
-																figure = 'program []
-																figure = 'freehand [
-																	if pos2 <> pos1 [
-																		switch step [
-																			1 [poke selection-start len pos2 pos1: pos2 env/step: 2]
-																			2 [append selection-start pos2 pos1: pos2]
-																		]
-																	]
-																]
-																figure = 'image [
-																	switch step [
-																		1 [append selection-start pos2 env/step: 2]
-																		2 [poke selection-start len pos2]
-																	]
-																]
-																figure = 'ortho-grid [
-																	probe selection-start/3
-																	poke selection-start/3 length? selection-start/3 pos2
-																]
-																'else [
-																	poke selection-start len switch/default figure [
-																		square [dim: max diff/x diff/y pos1 + as-pair dim dim]
-																		ellipse [diff]
-																		circle [sqrt add power diff/x 2 power diff/y 2]
-																	][pos2] 
-																]
+																last-mode: 'alt-down
 															]
 															select-figure
 															;redraw
 															;show face
-														]
-														move [
-															if move? [
-																clear move-points
-																parse next figure-proper reduce [
-																	'collect 'into 'move-points 
-																	either find [parachain paratriple] figure [
-																		[some [keep pair! | 'polygon]]
-																	][
-																		select figure-points figure-proper/1
-																	]
-																]
-																if block? move-points/1 [move-points: move-points/1]
-																either moveable/1 = 'all [
-																	either find [parachain paratriple] figure [
-																		forall move-points [
-																			x: divide -1 + index? move-points 4
-																			poke figure-proper x + 1 + index? move-points move-points/1 + diff
+													][
+														if event/down? [
+															switch action [
+																move [
+																	if move? [
+																		clear move-points
+																		parse next figure-proper reduce [
+																			'collect 'into 'move-points 
+																			either find [parachain paratriple] figure [
+																				[some [keep pair! | 'polygon]]
+																			][
+																				select figure-points figure-proper/1
+																			]
 																		]
-																	][
-																		forall move-points [poke figure-proper 1 + index? move-points move-points/1 + diff]
-																	]
-																][
-																	either figure-proper/1 = 'arc [
-																		forall move-points [poke figure-proper -1 move-points/1 + diff poke figure-proper pick moveable index? move-points move-points/1 + diff]
-																	][
-																		forall move-points [poke figure-proper pick moveable index? move-points move-points/1 + diff]
-																	]
-																]
-																pos1: pos2
-															]
-														]
-														translate [
-															switch step [
-																1 [insert-manipulation action env/step: 2]
-																2 [selection-start/3/2: diff]
-															]
-														]
-														scale [
-															switch step [
-																1 [insert-manipulation action env/step: 2]
-																2 [
-																	selection-start/3/2: add 1 diff/x / 100.0 
-																	selection-start/3/3: add 1 diff/y / 100.0
-																]
-															]
-														]
-														skew [
-															switch step [
-																1 [insert-manipulation action env/step: 2]
-																2 [
-																	selection-start/3/2: diff/x 
-																	selection-start/3/3: diff/y
-																]
-															]
-														]
-														rotate [
-															switch step [
-																1 [insert-manipulation action selection-start/3/3: pos1 env/step: 2]
-																2 [
-																	selection-start/3/2: round/to 180 / pi * arctangent2  diff/y diff/x 
-																		either drawing-on-grid? event/shift? [g-angle/data][.1]
-																]
-															]
-														]
-														t-rotate [
-															switch step [
-																1 [new-transformation selection-start/3/2: pos1 env/step: 2]
-																2 [
-																	selection-start/3/3: round/to 180 / pi * arctangent2  diff/y diff/x 
-																		either drawing-on-grid? event/shift? [g-angle/data][.1]
-																]
-															]
-														]
-														t-scale [
-															switch step [
-																1 [new-transformation selection-start/3/2: pos1 env/step: 2]
-																2 [
-																	selection-start/3/4: add 1 diff/x / 100.0
-																	selection-start/3/5: add 1 diff/y / 100.0
-																]
-															]
-														]
-														t-translate [
-															switch step [
-																1 [new-transformation selection-start/3/2: pos1 env/step: 2]
-																2 [selection-start/3/6: diff + pre-diff]
-															]
-														]
-														;animate [
-														;	if all [step = 2 canvas/rate] [
-														;		canvas/rate: either 0 < diff/x [canvas/rate + diff/x][0:0:1 + divide absolute diff/x 10]
-														;	]
-														;]
-														pen-linear or 
-														pen-radial or
-														pen-diamond or
-														fill-linear or
-														fill-radial or
-														fill-diamond [
-															switch step [
-																1 [ 
-																	set-gradient current-pen current-type pos1 env/step: 2
-																	env/current-gradient: find/last selection-start/3 current-pen
-																]
-																2 [ 
-																	poke current-gradient skip-colors switch current-type [
-																		linear [pos2] 
-																		radial [hyp] 
-																		diamond [pos2]
+																		if block? move-points/1 [move-points: move-points/1]
+																		either moveable/1 = 'all [
+																			either find [parachain paratriple] figure [
+																				forall move-points [
+																					x: divide -1 + index? move-points 4
+																					poke figure-proper x + 1 + index? move-points move-points/1 + diff
+																				]
+																			][
+																				forall move-points [poke figure-proper 1 + index? move-points move-points/1 + diff]
+																			]
+																		][
+																			either figure-proper/1 = 'arc [
+																				forall move-points [poke figure-proper -1 move-points/1 + diff poke figure-proper pick moveable index? move-points move-points/1 + diff]
+																			][
+																				forall move-points [poke figure-proper pick moveable index? move-points move-points/1 + diff]
+																			]
+																		]
+																		pos1: pos2
 																	]
 																]
-																3 [poke current-gradient skip-colors + 1 pos2]
+																translate [
+																	switch step [
+																		1 [insert-manipulation action env/step: 2]
+																		2 [selection-start/3/2: diff]
+																	]
+																]
+																scale [
+																	switch step [
+																		1 [insert-manipulation action env/step: 2]
+																		2 [
+																			selection-start/3/2: add 1 diff/x / 100.0 
+																			selection-start/3/3: add 1 diff/y / 100.0
+																		]
+																	]
+																]
+																skew [
+																	switch step [
+																		1 [insert-manipulation action env/step: 2]
+																		2 [
+																			selection-start/3/2: diff/x 
+																			selection-start/3/3: diff/y
+																		]
+																	]
+																]
+																rotate [
+																	switch step [
+																		1 [insert-manipulation action selection-start/3/3: pos1 env/step: 2]
+																		2 [
+																			selection-start/3/2: round/to 180 / pi * arctangent2  diff/y diff/x 
+																				either drawing-on-grid? event/shift? [g-angle/data][.1]
+																		]
+																	]
+																]
+																t-rotate [
+																	switch step [
+																		1 [new-transformation selection-start/3/2: pos1 env/step: 2]
+																		2 [
+																			selection-start/3/3: round/to 180 / pi * arctangent2  diff/y diff/x 
+																				either drawing-on-grid? event/shift? [g-angle/data][.1]
+																		]
+																	]
+																]
+																t-scale [
+																	switch step [
+																		1 [new-transformation selection-start/3/2: pos1 env/step: 2]
+																		2 [
+																			selection-start/3/4: add 1 diff/x / 100.0
+																			selection-start/3/5: add 1 diff/y / 100.0
+																		]
+																	]
+																]
+																t-translate [
+																	switch step [
+																		1 [new-transformation selection-start/3/2: pos1 env/step: 2]
+																		2 [selection-start/3/6: diff + pre-diff]
+																	]
+																]
+																;animate [
+																;	if all [step = 2 canvas/rate] [
+																;		canvas/rate: either 0 < diff/x [canvas/rate + diff/x][0:0:1 + divide absolute diff/x 10]
+																;	]
+																;]
+																pen-linear or 
+																pen-radial or
+																pen-diamond or
+																fill-linear or
+																fill-radial or
+																fill-diamond [
+																	switch step [
+																		1 [ 
+																			set-gradient current-pen current-type pos1 env/step: 2
+																			env/current-gradient: find/last selection-start/3 current-pen
+																		]
+																		2 [ 
+																			poke current-gradient skip-colors switch current-type [
+																				linear [pos2] 
+																				radial [hyp] 
+																				diamond [pos2]
+																			]
+																		]
+																		3 [poke current-gradient skip-colors + 1 pos2]
+																	]
+																]
 															]
+															last-mode: 'down
 														]
 													]
 													;if attempt [template/:figure] [
@@ -1715,65 +1810,8 @@ comment {
 													;]
 													if select-fig/data [show-selected]
 												]
+												pos-tmp: pos2
 											]
-											last-mode: 'down
-											redraw
-										]
-										if event/alt-down? [
-											either drawing-on-grid? event/shift? [
-												over-xy/text: rejoin ["x: " round/to event/offset/x g-size/data/x " y: " round/to event/offset/y g-size/data/y]
-											][
-												over-xy/text: rejoin ["x: " event/offset/x " y: " event/offset/y]
-											]
-											recalc-info
-											unless start? [
-												pos2: event/offset
-												if face/draw/1 = 'matrix [
-													mxpos: as-pair _Matrix/2/5 _Matrix/2/6
-													pos2: as-pair to-integer round pos2/x / _Matrix/2/1 to-integer round pos2/y / _Matrix/2/4
-													pos2: subtract pos2 mxpos / _Matrix/2/1
-												]
-												diff: pos2 - pos1
-												if drawing-on-grid? event/shift? [
-													pos2/x: round/to pos2/x g-size/data/x pos2/y: round/to pos2/y g-size/data/y
-												]
-												if pos2 <> pos-tmp [
-													either event/ctrl? [
-														either ortho? [
-															either cx [pos2/x: cx][pos2/y: cy] 
-														][
-															ortho?: on either lesser? absolute diff/x absolute diff/y [cx: pos1/x cy: none][cy: pos1/y cx: none]
-														]
-													][
-														ortho?: off cx: cy: none
-													]
-													diff: pos2 - pos1
-													ang: round/to 180 / pi * arctangent2 diff/y diff/x either drawing-on-grid? event/shift? [g-angle/data][.1]
-													hyp: sqrt add diff/x ** 2 diff/y ** 2
-													over-params/text: rejoin ["d: " diff " r: " round/to hyp .1 " α: " ang]
-													recalc-info
-													switch action [
-														draw [
-															len: either last-action = 'insert [offset? selection-start next-figure][length? selection-start]
-															case [
-																find [parachain paratriple] figure [
-																	switch step [
-																		3 or 4 [ ; Move positions positions 3 and 4 of new polygon 
-																			either figure = 'parachain [
-																				df: pos2 - first skip tail selection-start -3 
-																				poke selection-start len - 1 pos2 ; 
-																				poke selection-start len df + first skip tail selection-start -4
-																			][]
-																		]
-																	]
-																]
-															]
-															select-figure
-														]
-													]
-												]
-											]
-											last-mode: 'alt-down
 											redraw
 										]
 									]
@@ -1792,7 +1830,7 @@ comment {
 										]
 									]
 									on-up: func [face][
-										if all [last-action = 'insert not find [polygon polyline paragram parachain paratriple] figure] [last-action: none]
+										if all [last-action = 'insert not find [polygon polyline paragram parachain paratriple spline splineC] figure] [last-action: none]
 										switch action [
 											t-rotate [env/step: 1]
 											draw [
