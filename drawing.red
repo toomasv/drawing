@@ -2366,9 +2366,8 @@ comment {
 					export [save file: request-file/save/file/filter %export.png ["png" "*.png" "jpeg" "*.jpg" "gif" "*.gif"] draw canvas/size canvas/draw]
 					help [
 						view/flags [
-							below
-							text 500x450 {See [Readme](https://github.com/toomasv/drawing/blob/master/README.md).
-Just few notes for current version: To draw simple figures click on canvas and drag. To draw "poly-" figures (polyline and polygon) click and drag first line, then release and click and drag again to add lines. For manipulations (inserts separate `translate`, `scale`, `skew` and `rotate`) and transformations (inserts single `transform`) click and drag:
+text "See Readme:" field 300x24 "https://github.com/toomasv/drawing/blob/master/README.md" return
+text 500x450 {Just few notes for current version: To draw simple figures click on canvas and drag. To draw "poly-" figures (polyline and polygon) click and drag first line, then release and click and drag again to add lines. For manipulations (inserts separate `translate`, `scale`, `skew` and `rotate`) and transformations (inserts single `transform`) click and drag:
 
 * for rotation, click sets the rotation center, drag creates "lever" (preferably drag initially away from center in 0 direction, i.e to right) to rotate the figure
 * for scaling, click sets the start of scaling, drag scales in relation to 0x0 coordinates (I will implement "local" scaling, i.e. in relation to coordinates set by click)
@@ -2382,7 +2381,7 @@ Sift-key controls the grid-mode. If "Grid" is not checked, holding down `shift` 
 Wheel-rotation zooms in and out. New figures are inserted correctly under cursor in zoomed views.
 
 Pictures are inserted either from web (paste url into field) or from local file-system. First click after "OK" on file-selection window sets the top-left position for the picture, second click inserts picture - or - click and drag inserts picture to dragged dimensions. (Some bug, which I haven't succeeded to weed out, requires two mouse presses, instead of one. Working on this.)
-} text 500x200 {
+} text 500x450 {
 Wheel rotation above figures-list on right now moves the selected figure up or down in z-order.
 
 Local formatting for figures can be now selected from contextual menu on figures-list. E.G. to change pen color, select `Format->Pen->Color` and then select color from left side pen-color-picker.
@@ -2403,7 +2402,6 @@ square1/2/:angle: tick
 
 to change angle (i.e. nimate rotation); `tick` is preset reserved word counting time ticks,
 * click "Animate" button on "Drawing" tab
-
 }
 							button "OK" [unview]
 						][modal popup]
