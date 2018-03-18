@@ -1,6 +1,6 @@
 Red [
 	Author: "Toomas Vooglaid"
-	Last-version: 2018-03-17
+	Last-version: 2018-03-18
 	File: %drawing.red
 	Needs: 'View
 ]
@@ -302,7 +302,15 @@ comment {
 		do-events
 		result
 	]
-	ask-new-name: has [result][view/flags [title "Enter new name" result: field hint "New name" button "OK" [result: result/text unview]][modal popup] result]
+	ask-new-name: has [result][
+		view/flags [
+			title "Enter new name" 
+			result: field focus hint "New name" 
+			on-enter [result: result/text unview]
+			button "OK" [result: result/text unview]
+		][modal popup] 
+		result
+	]
 	show-warning: func [msg][view/flags compose [title "Warning!" text (msg) button "OK" [unview]][modal popup]]
 	load-file: has [result][
 		view/flags [
@@ -810,6 +818,29 @@ comment {
 		find-deep block select primary pick figs/data figs/selected
 	]
 	ff: none
+	delete: func [face][
+		put primary pick face/data face/selected none
+		sel: select-figure 
+		remove at face/data face/selected
+		remove/part selection-start selection-end
+		face/selected: sel
+		select-figure
+		show [face canvas]
+	]
+	rename: func [face][
+		new-name: ask-new-name
+		either find face/data new-name [
+			show-warning "Name should be unique!"
+		][
+			primary/:new-name: primary/(pick face/data face/selected)
+			put primary pick face/data face/selected none
+			change at face/data face/selected new-name
+			change selection-start to-set-word new-name
+			selected-figure/text: new-name
+			show selected-figure
+			show face
+		]
+	]
 	win: layout/options compose/deep [
 		title "Drawing pad"
 		size 600x500
@@ -1181,6 +1212,19 @@ comment {
 											]
 										]
 									]
+									on-key-down: func [face event][;probe event/flags
+										switch event/key [
+											#"M" [env/action: 'move]
+											#"T" [env/action: either find event/flags 'control ['t-translate]['translate] 	env/step: 1]
+											#"S" [env/action: either find event/flags 'control ['t-scale]	 ['scale] 		env/step: 1]
+											#"K" [env/action: 'skew 														env/step: 1]
+											#"R" [env/action: either find event/flags 'control ['t-rotate]	 ['rotate]		env/step: 1]
+											delete [env/delete figs]
+											#"N" [env/rename figs]
+											#"G" [env/action: 'group]
+										]
+										show [edit-layer canvas figs]
+									]
 									on-down: func [face event /local code pen type strt][
 										pos1: event/offset
 										;if face/draw/1 = 'matrix [
@@ -1438,6 +1482,8 @@ comment {
 												either last-action = 'insert [
 													switch figure [
 														polygon 		[next-figure: insert next-figure pos1] 
+														;spline 			[next-figure: insert next-figure pos1] 
+														;splineC			[next-figure: insert next-figure reduce [pos1 'closed]]
 														arc				[next-figure: insert next-figure [180 1]]
 														sector			[next-figure: insert next-figure [180 1 closed]]
 														paragram	or
@@ -1449,6 +1495,8 @@ comment {
 												][
 													switch figure [
 														polygon 		[append selection-start pos1] 
+														;spline 			[append selection-start pos1]
+														;splineC			[append selection-start reduce [pos1 'closed]]
 														arc				[append selection-start [180 1]]
 														sector			[append selection-start [180 1 closed]]
 														paragram	or
@@ -1459,6 +1507,10 @@ comment {
 													]
 												]
 												select-figure
+												;if attempt [template/:figure] [
+												;	obj/(wf: to-word ff): template/:figure
+													;obj/:wf/source: next find obj/:wf/source selection-start 
+												;]
 												case [
 													find [arc sector] figure [
 														insert-manipulation 'rotate
@@ -1774,6 +1826,10 @@ comment {
 															last-mode: 'down
 														]
 													]
+													;if attempt [template/:figure] [
+													;	obj/(wf: to-word ff): template/:figure
+														;obj/:wf/source: next find obj/:wf/source selection-start 
+													;]
 													if select-fig/data [show-selected]
 												]
 												pos-tmp: pos2
@@ -1826,10 +1882,10 @@ comment {
 												]
 											]
 											pen-radial or pen-diamond or fill-radial or fill-diamond [if step = 2 [env/step: 3]]
-											
 										]
 										last-pos: pos1
 										probe canvas/draw
+										env/win/selected: face show win
 									]
 								]
 							]
@@ -1904,19 +1960,19 @@ comment {
 										"Before"		before 
 										"Swap"			swap
 									]
-									"Move" 				move 
+									"Move (M)"			move 
 									"Manipulate" [
-										"Translate"		translate
-										"Scale"			scale
-										"Skew" 			skew 
-										"Rotate" 		rotate
+										"Translate (T)"	translate
+										"Scale (S)"		scale
+										"Skew (K)"		skew 
+										"Rotate (R)"	rotate
 									;	"Undo last"		undo-manipulation ; TBD Delete latest manipulation
 									;	"Undo all"		undo-manipulations ; TBD Delete all manipulations
 									]
 									"Transform" [
-										"Translate"		t-translate
-										"Scale"			t-scale
-										"Rotate"		t-rotate
+										"Translate (Ctrl-T)" t-translate
+										"Scale (Ctrl-S)"	 t-scale
+										"Rotate (Ctrl-R)" 	 t-rotate
 										"Undo" [
 											"Rotate"	undo-t-rotate
 											"Scale"		undo-t-scale
@@ -1934,15 +1990,15 @@ comment {
 									;]
 									;"Stop"			stop-animation
 									"Grouping" [
-										"Group"			group
+										"Group"		group
 										"Show elements"	show-group
 										"Hide elements"	hide-group
 									;	"Ungroup"		ungroup		; TBD Remove group transformations and replace group with elementary contents
 									]
 									;"Insert"		insert ;?? New one just before current one; TBD
 									"Clone"			clone
-									"Rename"		rename
-									"Delete" 		delete
+									"Rename (N)"		rename
+									"Delete (Del)" 	delete
 									;"3D" [
 									;	"Rotate" ["x" d3-x-rotate "y" d3-y-rotate "z" d3-z-rotate] ; TBD
 									;	"Translate" ["x" d3-x-translate "y" d3-y-translate "z" d3-z-translate] ; TBD
@@ -1956,8 +2012,17 @@ comment {
 									;on-down: func [face event][
 									;	pos: event/offset
 									;]
-									on-wheel: func [face event][
-										move-selection pick [backward forward] 0 < event/picked
+									on-wheel: func [face event][probe event/flags
+										either find event/flags 'control [
+											move-selection pick [backward forward] 0 < event/picked
+										][
+											switch event/picked [
+												1  [unless face/selected = 1 					[face/selected: face/selected - 1]]
+												-1 [unless face/selected = length? face/data 	[face/selected: face/selected + 1]]
+											]
+											show face
+											select-figure
+										]
 									]
 									on-menu: func [face event /local sel elements point figure][
 										env/action: 'draw
@@ -2028,8 +2093,8 @@ comment {
 												if elements: parse next selection-start show-group-rule [
 													group/data: elements
 													group/size/y: min 20 * length? elements 240
-													face/size/y: face/parent/size/y - group/size/y - sep2/size/y
-													sep2/offset/y: figs1/size/y
+													face/size/y: face/parent/size/y - face/offset/y - group/size/y - sep2/size/y
+													sep2/offset/y: figs1/offset/y + figs1/size/y
 													group/offset: as-pair face/offset/x face/offset/y + face/size/y + sep2/size/y
 													sep2/visible?: yes
 													group/visible?: yes
@@ -2037,10 +2102,10 @@ comment {
 												]
 											]
 											hide-group 	[
-												foreach fig next figs-panel/pane [
+												foreach fig next find figs-panel/pane figs [
 													fig/visible?: no
 												]
-												figs1/size/y: figs1/parent/size/y
+												figs1/size/y: figs1/parent/size/y - figs1/offset/y
 												show figs-panel
 											]
 											ungroup 	[
@@ -2059,20 +2124,7 @@ comment {
 												;	]
 												;]
 											] ; TBD
-											rename 		[
-												new-name: ask-new-name
-												either find face/data new-name [
-													show-warning "Name should be unique!"
-												][
-													primary/:new-name: primary/(pick face/data face/selected)
-													put primary pick face/data face/selected none
-													change at face/data face/selected new-name
-													change selection-start to-set-word new-name
-													selected-figure/text: new-name
-													show selected-figure
-													show face
-												]
-											]
+											rename 		[env/rename face]
 											insert 		[
 												env/last-action: 'insert 
 												next-figure: selection-start
@@ -2093,15 +2145,7 @@ comment {
 												if select-fig/data [show-selected/new]
 												redraw
 											]
-											delete 		[
-												put primary pick face/data face/selected none
-												sel: select-figure 
-												remove at face/data face/selected
-												remove/part selection-start selection-end
-												face/selected: sel
-												select-figure
-												show [face canvas]
-											]
+											delete 		[env/delete face]
 											d3 			[new-transformation event/picked]
 										]
 										current-action/text: form action
@@ -2148,16 +2192,18 @@ comment {
 									]
 								]
 							]
-						style sep: box loose 30x10 draw [pen gray line 0x4 30x4 line 0x6 30x6] hidden on-drag [
+						style sep: box loose 30x10 
+						draw [pen gray line 0x4 30x4 line 0x6 30x6] hidden on-drag [
 							face/offset/x: 35
 							idx: index? find face/parent/pane face
 							prev: face/parent/pane/(idx - 1)
 							nex:  face/parent/pane/(idx + 1)
-							tot: prev/size/y + face/size/y + nex/size/y
-							prev/size/y: face/offset/y
+							tot: 0
+							foreach-face/with figs-panel [tot: tot + face/size/y][face/visible? = yes];prev/size/y + face/size/y + nex/size/y
+							prev/size/y: face/offset/y - prev/offset/y
 							nex/offset/y: face/offset/y + face/size/y
 							nex/size/y: tot - prev/size/y - face/size/y
-							show [prev face nex]
+							show figs-panel
 						] 
 						at 0x0 layers: text-list 100x30 hidden data ["layer1"]
 							with [
@@ -2286,11 +2332,7 @@ comment {
 				"Open" 	open
 				"Save"	save
 				"Save as .." save-as
-				"Export as .." [
-					"png" png
-					"jpg" jpg
-					"ico" ico
-				]
+				"Export as .." export
 			]
 			"View" ["Draw window" draw "Draw console" console]
 			"Help" help
@@ -2321,6 +2363,7 @@ comment {
 					save-as [save-file-as]
 					draw [show-draw]
 					console [show-console]
+					export [save file: request-file/save/file/filter %export.png ["png" "*.png" "jpeg" "*.jpg" "gif" "*.gif"] draw canvas/size canvas/draw]
 					help [
 						view/flags [
 							below
@@ -2392,7 +2435,5 @@ to change angle (i.e. nimate rotation); `tick` is preset reserved word counting 
 			]
 		]
 	]
-	win-view: view/no-wait/flags win [resize]
-	;view/flags win [resize]
-	;do-events
+	win-view: view/flags win [resize] ; /no-wait
 ]
