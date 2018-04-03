@@ -41,4 +41,6 @@ to change angle (i.e. animate rotation).
 `tick` is preset reserved word counting time ticks,
 * click "Animate" button on "Drawing" tab
 
+You can try out exampe animation files `quadratic-bezier-draw.red` and `ellipse-draw.red`. Do just `File->Open` and click `Animate`.
+
 Files can be saved and loaded, and layers can be exported to `png`, `jpeg` and `gif` formats.
