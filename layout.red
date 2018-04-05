@@ -15,7 +15,7 @@ context [
 				return 
 				edit-options-panel: panel 500x25 brick [origin 0x0 space 4x0]
 				return
-				options-panel: panel 80x300 water [origin 0x0 space 0x0]
+				options-panel: panel 80x335 water [origin 0x0 space 0x0]
 				drawing-panel: panel 300x300 snow [
 					origin 0x0 space 0x0
 					style layer: box glass ;draw []
@@ -27,7 +27,7 @@ context [
 					at 0x0 drawing-layer: drawing ;transparent
 					at 0x0 edit-layer: base 300x300 transparent hidden
 				]
-				figs-panel: panel 100x300 beige []
+				figs-panel: panel 100x335 beige []
 				return
 				at 100x390 anim-panel: panel 300x25 crimson [origin 0x0 space 4x0]
 			] 
