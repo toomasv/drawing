@@ -7,7 +7,7 @@ context [
 	layer: layer1: drawing: selection-layer: grid-layer: drawing-layer: edit-layer: none
 	win: layout/options compose/deep [
 		title "Drawing pad"
-		size 520x425 
+		size 540x465 
 		tab-pan: tab-panel  [
 			"Drawing" [;backdrop rebolor 
 				across 
