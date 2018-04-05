@@ -8,7 +8,7 @@ context [
 	win: layout/options compose/deep [
 		title "Drawing pad"
 		size 540x465 
-		tab-pan: tab-panel  [
+		tab-pan: tab-panel 520x445 [
 			"Drawing" [;backdrop rebolor 
 				across 
 				info-panel: panel 500x25 gold [origin 0x0 space 4x0]
@@ -32,7 +32,7 @@ context [
 				at 100x390 anim-panel: panel 300x25 crimson [origin 0x0 space 4x0]
 			] 
 			"Animation" [origin 0x0 space 0x0
-				animations: area 500x405
+				animations: area 517x421
 			]
 		]
 		do [
