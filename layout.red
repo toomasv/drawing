@@ -7,13 +7,13 @@ context [
 	layer: layer1: drawing: selection-layer: grid-layer: drawing-layer: edit-layer: none
 	win: layout/options compose/deep [
 		title "Drawing pad"
-		size 600x500 
+		size 520x425 
 		tab-pan: tab-panel  [
 			"Drawing" [;backdrop rebolor 
 				across 
-				info-panel: panel 480x25 gold [origin 0x0 space 4x0]
+				info-panel: panel 500x25 gold [origin 0x0 space 4x0]
 				return 
-				edit-options-panel: panel 480x25 brick [origin 0x0 space 4x0]
+				edit-options-panel: panel 500x25 brick [origin 0x0 space 4x0]
 				return
 				options-panel: panel 80x300 water [origin 0x0 space 0x0]
 				drawing-panel: panel 300x300 snow [
@@ -29,10 +29,10 @@ context [
 				]
 				figs-panel: panel 100x300 beige []
 				return
-				anim-panel: panel 300x25 crimson [origin 0x0 space 4x0]
+				at 100x390 anim-panel: panel 300x25 crimson [origin 0x0 space 4x0]
 			] 
 			"Animation" [origin 0x0 space 0x0
-				animations: area 520x420
+				animations: area 500x405
 			]
 		]
 		do [
@@ -66,4 +66,6 @@ context [
 		]
 	]
 	view/flags win [resize]
+	;view win
 ]						
+						
