@@ -1,6 +1,6 @@
 Red [
 	Author: "Toomas Vooglaid"
-	Last-version: 2018-04-02
+	Last-version: 2018-08-16
 	File: %drawing.red
 	Needs: 'View
 ]
@@ -27,6 +27,11 @@ ctx: context [
 			center: is [as-pair point/1/x + point/2/x / 2 point/1/y + point/2/y / 2]
 			;on-deep-change*: func [owner word target action new index part][probe reduce [owner word target action new index part]]
 		]]
+		;polyline: make deep-reactor! [
+		;	source: copy []
+		;	;length: is 
+		;]
+		;box: object [points: make block! 2]
 		
 		
 	]
@@ -215,6 +220,37 @@ ctx: context [
 	]
 	; <-- new color-picker
 	
+comment {
+	sz: 150x150
+	grad-palette: make image! sz
+	draw grad-palette compose [
+		pen off
+		fill-pen linear red orange yellow green aqua blue purple
+		box 0x0 (sz)
+		fill-pen linear white glass black 0x0 (as-pair 0 sz/y)
+		box 0x0 (sz)
+	]
+	request-color: has [dn? sz colors][; Adapted from @greggirwin's %red-paint-with-time-travel.red
+		colors: copy []
+		view/flags [
+			title "Select color"
+			image grad-palette on-down [dn?: true] on-up [
+				if dn? [
+					either event/shift? [
+						append colors pick grad-palette event/offset
+					][
+						env/color: either empty? colors [
+							pick grad-palette event/offset
+						][  
+							append colors pick grad-palette event/offset
+						]
+						unview
+					]
+				]
+			]
+		][modal popup]
+	]
+}
 	skip-colors: 0
 	set-gradient: func [pen type pos1][
 		either block? env/color [
@@ -646,6 +682,12 @@ ctx: context [
 				selection-end
 		]
 	]
+	;insert-grid: func [][]
+	;new-manipulation: func [type][
+	;	insert-manipulation type
+	;	action: type
+	;	step: 1
+	;]
 	new-transformation: does [
 		unless all [selection-start/2 = 'push selection-start/3/1 = 'transform] [
 			insert-manipulation 'transform
@@ -868,6 +910,13 @@ ctx: context [
 									]
 									'done
 								] 
+								;on-over: func [face event]['done] 
+								;on-alt-down: func [face event][
+								;	face/draw/4: either face/draw/4 = 'transparent [80.150.255]['transparent] 
+								;	show face 
+								;	'done
+								;] 
+								;on-alt-up: func [face event]['done] 
 								on-drag: func [face event /local diff][
 									face/extra/pos2: either grid/data [
 										face/offset: subtract as-pair round/to face/offset/x + 5 g-size/data/x round/to face/offset/y + 5 g-size/data/y 5x5
@@ -924,13 +973,14 @@ ctx: context [
 	]
 	win: layout/options compose/deep [
 		title "Drawing pad"
-		size 600x500
-		tab-pan: tab-panel  [
-			"Drawing" [
-				drawing-panel-tab: panel [
+		size 600x510
+		tab-pan: tab-panel snow 580x490 [
+			"Drawing" [;backdrop green
+				;drawing-panel-tab: panel snow [origin 0x0 space 0x0
 					across 
-					info-panel: panel 480x20 [
-						origin 0x0 space 4x0
+					info-panel: panel snow 560x25 [
+						origin 0x0 
+						space 4x0
 						over-xy: text 10x20
 						over-params: text 20x20
 						current-zoom: text 20x20
@@ -939,8 +989,9 @@ ctx: context [
 						current-step: text 40x20
 					]
 					return
-					edit-options-panel: panel 480x30 [
-						origin 0x0 space 4x0
+					edit-options-panel: panel snow 560x25 [
+						origin 0x0 
+						space 4x0
 						text 50x20 "Selected:" 
 							selected-figure: text 80x20 
 						grid: check "Grid:" 45x20 [grid-layer/visible?: face/data poke find grid-layer/draw pair! 1 g-size/data show grid-layer]
@@ -969,9 +1020,10 @@ ctx: context [
 					]
 					return
 					;below
-					options-panel: panel 80x300 [
-						origin 0x0 space 0x0
-						style f: button 25x25 [
+					options-panel: panel snow 80x380 [
+						origin 0x0 
+						space 0x0
+						style f: button 25x25 [probe "hi"
 							env/figure: face/extra 
 							start?: true 
 							action: 'draw
@@ -1228,8 +1280,9 @@ ctx: context [
 						]
 					]
 					;return
-					drawing-panel: panel 300x300 [
-						origin 0x0 space 0x0
+					drawing-panel: panel snow 360x345 [
+						origin 0x0 
+						space 0x0
 						style layer: box glass draw [matrix [1 0 0 1 0 0]] with [extra: #()]
 						style drawing: base white 300x300 all-over
 						;rate 1;none
@@ -2060,7 +2113,7 @@ ctx: context [
 						;]
 					]
 					;return
-					figs-panel: panel 100x300 [
+					figs-panel: panel snow 100x380 [
 						style fig-list: text-list 100x300 data [] ;265
 							with [
 								menu: [
@@ -2119,21 +2172,38 @@ ctx: context [
 											"All"		undo-transforms
 										]
 									];"---"
+									;"Show transformations" show-transform	; TBD Show in separate window (like group elements), from where they can be edited
+									;"Hide transformations" hide-transform	; TBD
+									;"Animate" [
+									;	"Translate" 	a-translate
+									;	"Scale"			a-scale
+									;	"Skew"			a-skew
+									;	"Rotate"		a-rotate
+									;]
+									;"Stop"			stop-animation
 									"Grouping" [
 										"Group"		group
 										"Show elements"	show-group
 										"Hide elements"	hide-group
 									;	"Ungroup"		ungroup		; TBD Remove group transformations and replace group with elementary contents
 									]
+									;"Insert"		insert ;?? New one just before current one; TBD
 									"Clone"			clone
 									"Rename (N)"		rename
 									"Delete (Del)" 	delete
+									;"3D" [
+									;	"Rotate" ["x" d3-x-rotate "y" d3-y-rotate "z" d3-z-rotate] ; TBD
+									;	"Translate" ["x" d3-x-translate "y" d3-y-translate "z" d3-z-translate] ; TBD
+									;]
 								]
 								actors: object [
 									pos: 0x0
 									last-selected: none
 									last-length: none
 									last-tail: none
+									;on-down: func [face event][
+									;	pos: event/offset
+									;]
 									on-wheel: func [face event][probe event/flags
 										either find event/flags 'control [
 											move-selection pick [backward forward] 0 < event/picked
@@ -2201,6 +2271,7 @@ ctx: context [
 												]
 												redraw ;show canvas
 											]
+											;animate [env/action: 'animate env/step: 1 canvas/rate: 10]
 											stop-animation [canvas/rate: none env/step: 1]
 
 											a-translate	[
@@ -2313,8 +2384,9 @@ ctx: context [
 									]
 								]
 							]
-						style sep: box loose 30x10 
-						draw [pen gray line 0x4 30x4 line 0x6 30x6] hidden on-drag [
+						style sep: box loose 30x10 hidden 
+						draw [pen gray line 0x4 30x4 line 0x6 30x6] 
+						on-drag [
 							face/offset/x: 35
 							idx: index? find face/parent/pane face
 							prev: face/parent/pane/(idx - 1)
@@ -2424,7 +2496,7 @@ ctx: context [
 						;button 25x25 with [image: (draw 23x23 [fill-pen black polygon 10x5 12x5 12x14 14x14 11x17 8x14 10x14])]
 					]
 					return
-					anim-panel: panel 300x25 [
+					at 100x390 anim-panel: panel snow 360x25 [
 						origin 0x0 space 4x0
 						text 30x23 "Rate:" a-rate: field 30x23 with [data: 10][canvas/rate: face/data]
 						button "Animate" [
@@ -2437,15 +2509,17 @@ ctx: context [
 						button "Stop" [canvas/rate: none] 
 						button "Continue" [canvas/rate: a-rate/data show canvas]
 					]
-				]
+				;]
 			]
 			"Animation" [
-				animations: area 520x420
+				origin 0x0 space 0x0
+				animations: area 519x421 ;!!!
 			]
 			"Scenes" [
 				;scenes: none
 			]
 		]
+		do [foreach tab tab-pan/pane [probe tab/parent/offset tab/offset: tab/parent/offset + 10x30]]
 	][
 		menu: [
 			"File" [
@@ -2531,13 +2605,14 @@ to change angle (i.e. nimate rotation); `tick` is preset reserved word counting 
 				]
 			]
 			on-resizing: func [face event][
-				tab-pan/size: win/size - 17
+				tab-pan/size: win/size - 20;17
 				foreach tab tab-pan/pane [
-					tab/size: tab/parent/size; - 10;23x45
+					;tab/offset: tab/parent/offset + 2x24;!
+					tab/size: tab/parent/size - 4x25;!
+					;tab/size: tab/parent/size; - 10;23x45
 				]
-				drawing-panel-tab/offset: 0x0
-				drawing-panel-tab/size: drawing-panel-tab/parent/size - 4x20
-				info-panel/size/y: info-panel/parent/size/y - info-panel/offset/y - 10
+				info-panel/size/x: info-panel/parent/size/x - info-panel/offset/x - 10 ; !
+				edit-options-panel/size/x: edit-options-panel/parent/size/x - edit-options-panel/offset/x - 10;!
 				options-panel/size/y: options-panel/parent/size/y - options-panel/offset/y - 10
 				drawing-panel/size: 			;edit-panel/size: 
 					drawing-panel/parent/size - drawing-panel/offset - 120x50
@@ -2545,18 +2620,18 @@ to change angle (i.e. nimate rotation); `tick` is preset reserved word counting 
 				canvas/size: drawing-panel/size ; grid-layer/size: selection-layer/size: drawing-layer/size: 
 				poke grid-layer/draw length? grid-layer/draw canvas/size
 				figs-panel/offset/x: figs-panel/parent/size/x - 110
-				figs-panel/size/y: figs-panel/parent/size/y - figs-panel/offset/y - 15
+				figs-panel/size/y: figs-panel/parent/size/y - figs-panel/offset/y - 10;15
 				figs1/size/y: figs-panel/size/y
-				anim-panel/offset/x: anim-panel/parent/offset/x + 100
-				anim-panel/offset/y: anim-panel/parent/size/y - 38
+				anim-panel/offset/x: drawing-panel/offset/x;anim-panel/parent/offset/x + 100
+				anim-panel/offset/y: anim-panel/parent/size/y - 35;38
 				anim-panel/size/x: drawing-panel/size/x
-				animations/offset: 0x0
-				animations/size: animations/parent/size - 5x25
+				;animations/offset: 0x0
+				animations/size: animations/parent/size ;- 1x0;5x25
 				show win 
 			]
 		]
 	]
-	view/flags/no-wait win [resize] ; /no-wait
+	view/flags win [resize] ; /no-wait
 	;view/flags win [resize]
 	;do-events
 ]
