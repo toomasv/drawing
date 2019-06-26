@@ -3,6 +3,7 @@ Red [
 	Last-version: 2019-02-15
 	File: %drawing.red
 	Needs: 'View
+	Licence: "MIT"
 ]
 system/view/auto-sync?: off
 system/state/trace: 20
