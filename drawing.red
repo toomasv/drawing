@@ -129,7 +129,7 @@ ctx: context [
 
 	; --> new color-picker
 	make-color: func [i][
-		sector: i - 1 / 64 + 1
+		sector: (to-integer i -  1 / 64) + 1
 		switch sector [
 			1 [as-rgba 255 0 i - 1 * 4 0]
 			2 [as-rgba 255 - (i - 1 % 64 * 4) 0 255 0]
