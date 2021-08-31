@@ -1,3 +1,5 @@
+(Not updated for a long time. May be broken)
+
 # Short intro to drawing-pad
 
 To draw simple figures click on canvas and drag. To draw "poly-" figures (polyline, polygon, spline) click and drag first line, then release and click and drag again to add points. For manipulations (inserts separate `translate`, `scale`, `skew` and `rotate`) and transformations (inserts single `transform`) click and drag:
